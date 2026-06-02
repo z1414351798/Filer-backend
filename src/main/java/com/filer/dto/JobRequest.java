@@ -10,33 +10,38 @@ public class JobRequest {
     private String conversionType;
     private Map<String, Object> options;
 
-    // Image resize
+    // Image resize / collage
     private Integer width;
     private Integer height;
+    private Integer cols;           // collage columns
     // Image compress
     private Float quality;
     // Image rotate
     private Integer angle;
-    // Image watermark
+    // Image watermark / border
     private String watermarkText;
+    private Integer borderSize;
+    private String borderColor;     // hex e.g. #FF0000
     // Image crop
-    private Integer cropX;
-    private Integer cropY;
-    private Integer cropWidth;
-    private Integer cropHeight;
-    // Image brightness
+    private Integer cropX, cropY, cropWidth, cropHeight;
+    // Image filters
     private Float brightness;
-    // Image blur  <-- was missing, caused IMAGE_BLUR to always use radius=3
     private Integer blurRadius;
-    // Image flip direction
+    private Integer cornerRadius;   // round corners
+    // Image flip
     private Boolean horizontal;
+    // Color palette
+    private Integer paletteCount;   // number of dominant colors
 
-    // PDF operations
+    // PDF
     private Integer splitPage;
     private String password;
     private List<String> fileIds;
+    private Integer pageIndex;          // PDF page rotate target page
+    private Integer rotationDegrees;    // 90 / 180 / 270
+    private Float watermarkOpacity;     // 0.0–1.0
 
-    // OCR language
+    // OCR
     private String language;
 
     // QR / Barcode
@@ -44,9 +49,17 @@ public class JobRequest {
     private Integer qrSize;
     private String barcodeFormat;
 
-    // Data / text conversions
+    // Data / text
     private String textContent;
-
-    // File utilities
     private String checksumAlgorithm;
+    private String diffFileId;          // second file for TEXT_DIFF
+
+    // Video
+    private Integer videoSecond;        // second to extract thumbnail
+    private Integer videoDuration;      // GIF duration in seconds
+    private Integer videoFps;           // GIF fps
+
+    // Notifications
+    private String notifyEmail;
+    private String webhookUrl;
 }

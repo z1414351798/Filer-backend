@@ -1,72 +1,36 @@
 package com.filer.model.enums;
 
 public enum ConversionType {
-    // ── Image format conversions ────────────────────────────────────────────
-    IMAGE_TO_JPG,
-    IMAGE_TO_PNG,
-    IMAGE_TO_WEBP,
-    IMAGE_TO_BMP,
-    IMAGE_TO_GIF,
-
-    // ── Image basic operations ──────────────────────────────────────────────
-    IMAGE_RESIZE,
-    IMAGE_COMPRESS,
-    IMAGE_ROTATE,
-    IMAGE_FLIP,
-    IMAGE_GRAYSCALE,
-    IMAGE_WATERMARK,
-
-    // ── Image filters & adjustments (NEW) ──────────────────────────────────
-    IMAGE_CROP,
-    IMAGE_SEPIA,
-    IMAGE_INVERT,
-    IMAGE_BLUR,
-    IMAGE_SHARPEN,
-    IMAGE_BRIGHTNESS,
-
-    // ── PDF operations ──────────────────────────────────────────────────────
-    PDF_MERGE,
-    PDF_SPLIT,
-    PDF_TO_IMAGES,
-    PDF_COMPRESS,
-    PDF_TO_TEXT,
-    PDF_ENCRYPT,
-    PDF_DECRYPT,
-
-    // ── Images → PDF ────────────────────────────────────────────────────────
-    IMAGES_TO_PDF,
-
-    // ── OCR ─────────────────────────────────────────────────────────────────
-    OCR_IMAGE,
-    OCR_PDF,
-
-    // ── Archive ─────────────────────────────────────────────────────────────
-    ZIP_CREATE,
-    ZIP_EXTRACT,
-
-    // ── Office formats ──────────────────────────────────────────────────────
-    EXCEL_TO_CSV,
-    CSV_TO_EXCEL,
-    WORD_TO_TEXT,
-
-    // ── QR / Barcode (NEW) ──────────────────────────────────────────────────
-    QR_GENERATE,
-    QR_SCAN,
-    BARCODE_GENERATE,
-    BARCODE_SCAN,
-
-    // ── Data format conversions (NEW) ────────────────────────────────────────
-    CSV_TO_JSON,
-    JSON_TO_CSV,
-    XML_TO_JSON,
-    JSON_TO_XML,
-    MARKDOWN_TO_HTML,
-    MARKDOWN_TO_PDF,
-    TEXT_TO_PDF,
-    HTML_TO_PDF,
-
-    // ── File utilities (NEW) ─────────────────────────────────────────────────
-    FILE_CHECKSUM,
-    IMAGE_METADATA,
-    PDF_INFO
+    // Image format
+    IMAGE_TO_JPG, IMAGE_TO_PNG, IMAGE_TO_WEBP, IMAGE_TO_BMP, IMAGE_TO_GIF,
+    // Image basic ops
+    IMAGE_RESIZE, IMAGE_COMPRESS, IMAGE_ROTATE, IMAGE_FLIP, IMAGE_GRAYSCALE, IMAGE_WATERMARK,
+    // Image filters
+    IMAGE_CROP, IMAGE_SEPIA, IMAGE_INVERT, IMAGE_BLUR, IMAGE_SHARPEN, IMAGE_BRIGHTNESS,
+    // Image enhancements (NEW)
+    IMAGE_COLLAGE, IMAGE_BORDER, IMAGE_ROUND_CORNERS, IMAGE_COLOR_PALETTE,
+    // PDF
+    PDF_MERGE, PDF_SPLIT, PDF_TO_IMAGES, PDF_TO_TEXT, PDF_ENCRYPT, PDF_DECRYPT, IMAGES_TO_PDF,
+    // PDF enhancements (NEW)
+    PDF_WATERMARK, PDF_PAGE_ROTATE, PDF_TO_DOCX, PDF_COMPRESS,
+    // OCR
+    OCR_IMAGE, OCR_PDF,
+    // Archive
+    ZIP_CREATE, ZIP_EXTRACT, TAR_CREATE, TAR_EXTRACT,
+    // Office
+    EXCEL_TO_CSV, CSV_TO_EXCEL, WORD_TO_TEXT,
+    // QR / Barcode
+    QR_GENERATE, QR_SCAN, BARCODE_GENERATE, BARCODE_SCAN,
+    // Data formats
+    CSV_TO_JSON, JSON_TO_CSV, XML_TO_JSON, JSON_TO_XML,
+    MARKDOWN_TO_HTML, MARKDOWN_TO_PDF, TEXT_TO_PDF, HTML_TO_PDF,
+    // Data formats (NEW)
+    JSON_TO_YAML, YAML_TO_JSON, JSON_FORMAT, XML_FORMAT,
+    BASE64_ENCODE, BASE64_DECODE, TEXT_DIFF,
+    // SVG (NEW)
+    SVG_TO_PNG, SVG_TO_PDF,
+    // Video (NEW)
+    VIDEO_THUMBNAIL, VIDEO_TO_GIF, VIDEO_AUDIO_EXTRACT,
+    // File utilities
+    FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO
 }

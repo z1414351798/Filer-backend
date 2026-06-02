@@ -15,14 +15,10 @@ spring:
     redis:
       host: localhost
       port: 6379
-      password:
       database: 0
       timeout: 10000ms
       lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+        pool: { max-active: 8, max-idle: 8, min-idle: 0 }
 
   kafka:
     bootstrap-servers: localhost:9092
@@ -42,21 +38,37 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.filer.model
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 filer:
   upload-dir: /tmp/filer/uploads
   output-dir: /tmp/filer/outputs
   job-ttl-seconds: 86400
-  max-file-size-mb: 200
+  max-file-size-mb: 500
+  jwt:
+    secret: ${JWT_SECRET:ZmlsZXItc2VjcmV0LWtleS1hdC1sZWFzdC0yNTYtYml0cy1sb25n}
+    expiration-ms: 86400000   # 24 hours
+  rate-limit:
+    anonymous-per-hour: 100
+    authenticated-per-hour: 1000
+  share-link-ttl-hours: 24
+  notify-email-enabled: ${EMAIL_ENABLED:false}
 
 tesseract:
   data-path: /usr/share/tesseract-ocr/4.00/tessdata
