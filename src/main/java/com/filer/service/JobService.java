@@ -13,7 +13,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,41 +34,45 @@ public class JobService {
 
         ConversionJob job = new ConversionJob();
         job.setJobId(jobId);
-        job.setSourceFileId(request.getFileId());
+        job.setSourceFileId(request.getFileId() != null ? request.getFileId() : "");
         job.setConversionType(request.getConversionType());
         job.setStatus(JobStatus.PENDING.name());
         job.setProgress(0);
-        try {
-            job.setOptions(objectMapper.writeValueAsString(request.getOptions()));
-        } catch (Exception e) {
-            job.setOptions("{}");
-        }
+        try { job.setOptions(objectMapper.writeValueAsString(request.getOptions())); }
+        catch (Exception e) { job.setOptions("{}"); }
         jobMapper.insert(job);
-
-        // Cache in Redis
         cacheJob(job);
 
-        // Build payload for Kafka
+        // Build Kafka payload
         Map<String, Object> payload = new HashMap<>();
         payload.put("fileId", request.getFileId());
-        if (request.getWidth() != null) payload.put("width", request.getWidth());
-        if (request.getHeight() != null) payload.put("height", request.getHeight());
-        if (request.getQuality() != null) payload.put("quality", request.getQuality());
-        if (request.getAngle() != null) payload.put("angle", request.getAngle());
-        if (request.getWatermarkText() != null) payload.put("watermarkText", request.getWatermarkText());
-        if (request.getSplitPage() != null) payload.put("splitPage", request.getSplitPage());
-        if (request.getPassword() != null) payload.put("password", request.getPassword());
-        if (request.getFileIds() != null) payload.put("fileIds", request.getFileIds());
-        if (request.getLanguage() != null) payload.put("language", request.getLanguage());
-        if (request.getOptions() != null) payload.putAll(request.getOptions());
+        if (request.getWidth()             != null) payload.put("width",             request.getWidth());
+        if (request.getHeight()            != null) payload.put("height",            request.getHeight());
+        if (request.getQuality()           != null) payload.put("quality",           request.getQuality());
+        if (request.getAngle()             != null) payload.put("angle",             request.getAngle());
+        if (request.getWatermarkText()     != null) payload.put("watermarkText",     request.getWatermarkText());
+        if (request.getSplitPage()         != null) payload.put("splitPage",         request.getSplitPage());
+        if (request.getPassword()          != null) payload.put("password",          request.getPassword());
+        if (request.getFileIds()           != null) payload.put("fileIds",           request.getFileIds());
+        if (request.getLanguage()          != null) payload.put("language",          request.getLanguage());
+        if (request.getCropX()             != null) payload.put("cropX",             request.getCropX());
+        if (request.getCropY()             != null) payload.put("cropY",             request.getCropY());
+        if (request.getCropWidth()         != null) payload.put("cropWidth",         request.getCropWidth());
+        if (request.getCropHeight()        != null) payload.put("cropHeight",        request.getCropHeight());
+        if (request.getBrightness()        != null) payload.put("brightness",        request.getBrightness());
+        if (request.getHorizontal()        != null) payload.put("horizontal",        request.getHorizontal().toString());
+        if (request.getQrText()            != null) payload.put("qrText",            request.getQrText());
+        if (request.getQrSize()            != null) payload.put("qrSize",            request.getQrSize());
+        if (request.getBarcodeFormat()     != null) payload.put("barcodeFormat",     request.getBarcodeFormat());
+        if (request.getTextContent()       != null) payload.put("textContent",       request.getTextContent());
+        if (request.getChecksumAlgorithm() != null) payload.put("checksumAlgorithm", request.getChecksumAlgorithm());
+        if (request.getOptions()           != null) payload.putAll(request.getOptions());
 
         producer.sendConversionTask(jobId, request.getConversionType(), payload);
-
         return toResponse(job);
     }
 
     public JobResponse getJob(String jobId) {
-        // Try Redis first
         Object cached = redisTemplate.opsForValue().get(REDIS_JOB_PREFIX + jobId);
         if (cached != null) {
             try {
@@ -106,10 +109,9 @@ public class JobService {
 
     private void cacheJob(ConversionJob job) {
         try {
-            redisTemplate.opsForValue().set(
-                    REDIS_JOB_PREFIX + job.getJobId(), job, JOB_TTL);
+            redisTemplate.opsForValue().set(REDIS_JOB_PREFIX + job.getJobId(), job, JOB_TTL);
         } catch (Exception e) {
-            log.warn("Failed to cache job in Redis: {}", e.getMessage());
+            log.warn("Redis cache failed: {}", e.getMessage());
         }
     }
 
