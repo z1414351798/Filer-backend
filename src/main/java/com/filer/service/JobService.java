@@ -43,7 +43,7 @@ public class JobService {
         jobMapper.insert(job);
         cacheJob(job);
 
-        // Build Kafka payload
+        // Build Kafka payload — every non-null request field is forwarded
         Map<String, Object> payload = new HashMap<>();
         payload.put("fileId", request.getFileId());
         if (request.getWidth()             != null) payload.put("width",             request.getWidth());
@@ -60,6 +60,7 @@ public class JobService {
         if (request.getCropWidth()         != null) payload.put("cropWidth",         request.getCropWidth());
         if (request.getCropHeight()        != null) payload.put("cropHeight",        request.getCropHeight());
         if (request.getBrightness()        != null) payload.put("brightness",        request.getBrightness());
+        if (request.getBlurRadius()        != null) payload.put("blurRadius",        request.getBlurRadius());
         if (request.getHorizontal()        != null) payload.put("horizontal",        request.getHorizontal().toString());
         if (request.getQrText()            != null) payload.put("qrText",            request.getQrText());
         if (request.getQrSize()            != null) payload.put("qrSize",            request.getQrSize());

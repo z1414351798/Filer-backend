@@ -19,16 +19,17 @@ public class JobRequest {
     private Integer angle;
     // Image watermark
     private String watermarkText;
-    // Image crop (NEW)
+    // Image crop
     private Integer cropX;
     private Integer cropY;
     private Integer cropWidth;
     private Integer cropHeight;
-    // Image brightness/contrast (NEW)
-    private Float brightness;   // 0.0–2.0, 1.0 = no change
-    private Float contrast;     // 0.0–2.0, 1.0 = no change
+    // Image brightness
+    private Float brightness;
+    // Image blur  <-- was missing, caused IMAGE_BLUR to always use radius=3
+    private Integer blurRadius;
     // Image flip direction
-    private Boolean horizontal; // true = horizontal flip
+    private Boolean horizontal;
 
     // PDF operations
     private Integer splitPage;
@@ -38,14 +39,14 @@ public class JobRequest {
     // OCR language
     private String language;
 
-    // QR / Barcode (NEW)
+    // QR / Barcode
     private String qrText;
-    private Integer qrSize;        // pixels, default 300
-    private String barcodeFormat;  // EAN_13, CODE_128, etc.
+    private Integer qrSize;
+    private String barcodeFormat;
 
-    // Data / text conversions (NEW)
-    private String textContent;    // inline text input (for TEXT_TO_PDF, MARKDOWN_TO_HTML, etc.)
+    // Data / text conversions
+    private String textContent;
 
-    // File utilities (NEW)
-    private String checksumAlgorithm; // MD5 | SHA-256 | SHA-512
+    // File utilities
+    private String checksumAlgorithm;
 }
