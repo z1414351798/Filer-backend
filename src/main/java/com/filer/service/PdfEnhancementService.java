@@ -294,6 +294,25 @@ public class PdfEnhancementService {
         }
     }
 
+    /** Split PDF into chunks of pagesPerChunk pages each. Returns list of PDF paths. */
+    public List<Path> splitBySize(Path src, int pagesPerChunk) throws IOException {
+        int chunkSize = Math.max(1, pagesPerChunk);
+        List<Path> results = new java.util.ArrayList<>();
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            int total = doc.getNumberOfPages();
+            for (int start = 0; start < total; start += chunkSize) {
+                int end = Math.min(start + chunkSize, total);
+                try (PDDocument chunk = new PDDocument()) {
+                    for (int i = start; i < end; i++) chunk.addPage(doc.getPage(i));
+                    Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+                    chunk.save(out.toFile());
+                    results.add(out);
+                }
+            }
+        }
+        return results;
+    }
+
     /** Render the first page of a PDF as a JPEG thumbnail at 150 DPI. */
     public Path pdfThumbnail(Path src, int pageIndex) throws IOException {
         try (PDDocument doc = Loader.loadPDF(src.toFile())) {

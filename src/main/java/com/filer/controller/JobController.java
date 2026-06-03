@@ -26,7 +26,8 @@ public class JobController {
         }
         boolean noFileType = Set.of(
             "UUID_GENERATE","LOREM_IPSUM","RANDOM_CSV","PASSWORD_GENERATE",
-            "PASSPHRASE_GENERATE","REGEX_TEST","COLOR_CONVERT","PLACEHOLDER_IMAGE"
+            "PASSPHRASE_GENERATE","REGEX_TEST","COLOR_CONVERT","PLACEHOLDER_IMAGE",
+            "TEXT_TO_IMAGE","NUMBER_BASE_CONVERT","CRON_DESCRIBE"
         ).contains(request.getConversionType());
         if (!noFileType && (request.getFileId() == null || request.getFileId().isBlank())) {
             return ResponseEntity.badRequest().body(ApiResponse.error("fileId is required for this conversion type"));

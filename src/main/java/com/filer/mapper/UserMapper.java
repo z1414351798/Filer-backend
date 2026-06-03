@@ -3,6 +3,7 @@ package com.filer.mapper;
 import com.filer.model.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import java.util.List;
 import java.util.Optional;
 
 @Mapper
@@ -12,4 +13,5 @@ public interface UserMapper {
     Optional<User> findByUsername(String username);
     Optional<User> findById(Long id);
     void updatePasswordHash(@Param("id") Long id, @Param("passwordHash") String passwordHash);
+    List<User> findAll();
 }

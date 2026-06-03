@@ -297,6 +297,21 @@ public class VideoService {
         return out;
     }
 
+    /** Adjust audio volume by a multiplier (e.g. 2.0 = double, 0.5 = half). */
+    public Path adjustVolume(Path src, float factor) throws Exception {
+        if (factor <= 0) factor = 1.0f;
+        String ext = src.getFileName().toString().replaceFirst(".*\\.", "");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + "." + ext);
+        List<String> cmd = List.of("ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-af", "volume=" + factor,
+            out.toAbsolutePath().toString());
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        if (p.waitFor() != 0) throw new IOException("ffmpeg volume failed: " + log);
+        return out;
+    }
+
     /** Concatenate multiple audio files into one MP3 using FFmpeg filter_complex. */
     public Path mergeAudio(List<Path> sources) throws Exception {
         if (sources.size() == 1) return convertAudio(sources.get(0), "mp3");

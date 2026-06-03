@@ -31,4 +31,8 @@
     <update id="updatePasswordHash">
         UPDATE `user` SET password_hash = #{passwordHash} WHERE id = #{id}
     </update>
+
+    <select id="findAll" resultMap="userMap">
+        SELECT * FROM `user` ORDER BY created_at DESC
+    </select>
 </mapper>

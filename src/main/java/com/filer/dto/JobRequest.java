@@ -137,4 +137,24 @@ public class JobRequest {
     // Audio fade
     private Integer fadeInDuration;  // seconds
     private Integer fadeOutDuration; // seconds
+    // Text to image
+    private String codeTheme;       // "dark" | "light"
+    // Image caption
+    private String captionText;
+    private String captionPosition; // "top" | "bottom"
+    // Audio volume
+    private Float volumeFactor;     // e.g. 2.0 = twice as loud
+    // PDF split by size
+    private Integer pagesPerChunk;
+    // ZIP encrypt
+    private String zipPassword;
+    // Number base convert
+    private String numberInput;
+    private String numberFrom;      // "decimal" | "binary" | "octal" | "hex"
+    private String numberTo;        // same options
+    // Cron describe
+    private String cronExpression;
+    // CSV sort
+    private String sortColumn;
+    private Boolean sortAscending;
 }

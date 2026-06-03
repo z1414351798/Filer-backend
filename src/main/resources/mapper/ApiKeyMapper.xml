@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.filer.mapper.ApiKeyMapper">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO api_key (user_id, key_value, name, created_at, active)
+        VALUES (#{userId}, #{keyValue}, #{name}, NOW(), TRUE)
+    </insert>
+    <select id="findByUserId" resultType="com.filer.model.ApiKey">
+        SELECT * FROM api_key WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+    <select id="findByKeyValue" resultType="com.filer.model.ApiKey">
+        SELECT * FROM api_key WHERE key_value = #{keyValue} AND active = TRUE
+    </select>
+    <update id="deactivate">
+        UPDATE api_key SET active = FALSE WHERE id = #{id} AND user_id = #{userId}
+    </update>
+    <update id="updateLastUsed">
+        UPDATE api_key SET last_used = NOW() WHERE key_value = #{keyValue}
+    </update>
+</mapper>

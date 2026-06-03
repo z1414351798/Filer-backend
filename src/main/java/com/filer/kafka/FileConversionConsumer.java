@@ -332,6 +332,20 @@ public class FileConversionConsumer {
             case BARCODE_READ      -> qrCodeService.readBarcode(src);
             case MARKDOWN_TO_DOCX  -> officeService.markdownToDocx(src);
             case PDF_THUMBNAIL     -> pdfEnhancementService.pdfThumbnail(src, intOrDef(p,"pageIndex",0));
+            // Wave 8 new cases
+            case TEXT_TO_IMAGE      -> imageEnhancementService.textToImage(strOrDef(p,"textContent","Hello"), strOrDef(p,"codeTheme","dark"), intOrDef(p,"fontSize",14));
+            case IMAGE_CAPTION      -> imageEnhancementService.addCaption(src, strOrDef(p,"captionText",""), strOrDef(p,"captionPosition","bottom"));
+            case QR_WITH_LOGO       -> imageEnhancementService.qrWithLogo(strOrDef(p,"qrContent","https://example.com"), intOrDef(p,"qrSize",400), src);
+            case JSON_FLATTEN       -> dataFormatService.flattenJson(src);
+            case JSON_UNFLATTEN     -> dataFormatService.unflattenJson(src);
+            case CSV_DEDUP          -> dataFormatService.dedupCsv(src);
+            case CSV_SORT           -> dataFormatService.sortCsv(src, strOrDef(p,"sortColumn","1"), boolOrDef(p,"sortAscending",true));
+            case AUDIO_VOLUME       -> videoService.adjustVolume(src, floatOrDef(p,"volumeFactor",1.5f));
+            case PDF_SPLIT_BY_SIZE  -> { List<Path> parts = pdfEnhancementService.splitBySize(src, intOrDef(p,"pagesPerChunk",5)); yield archiveService.createZip(parts, null); }
+            case ZIP_ENCRYPT        -> archiveService.createEncryptedZip(listOf(p,"fileIds").isEmpty() ? List.of(src) : listOf(p,"fileIds").stream().map(id -> fileStorageService.getFilePath(id)).toList(), strOrDef(p,"zipPassword","password"));
+            case NUMBER_BASE_CONVERT -> dataFormatService.convertNumberBase(strOrDef(p,"numberInput","0"), strOrDef(p,"numberFrom","decimal"), strOrDef(p,"numberTo","binary"));
+            case IMAGE_TO_DATA_URI  -> imageEnhancementService.imageToDataUri(src);
+            case CRON_DESCRIBE      -> dataFormatService.describeCron(strOrDef(p,"cronExpression","0 12 * * MON-FRI"));
             // File utility types are handled via /api/info/* endpoints, not Kafka jobs
             case FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO ->
                 throw new UnsupportedOperationException(type + " is handled by /api/info endpoints");

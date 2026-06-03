@@ -315,6 +315,108 @@ public class ImageEnhancementService {
         return out;
     }
 
+    /** Render text/code as a styled PNG image (dark or light theme). */
+    public Path textToImage(String text, String theme, int fontSize) throws IOException {
+        boolean dark = !"light".equalsIgnoreCase(theme);
+        String[] lines = (text == null ? "Hello, World!" : text).split("\n");
+        int lineH = fontSize + 6;
+        int padding = 24;
+        int w = 800;
+        int h = lines.length * lineH + padding * 2;
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        // Background
+        g.setColor(dark ? new java.awt.Color(30, 30, 30) : new java.awt.Color(250, 250, 250));
+        g.fillRect(0, 0, w, h);
+        // Top bar
+        g.setColor(dark ? new java.awt.Color(50, 50, 50) : new java.awt.Color(220, 220, 220));
+        g.fillRect(0, 0, w, 28);
+        // Dots
+        int[] dotColors = {0xFF5F57, 0xFFBD2E, 0x28C840};
+        for (int i = 0; i < 3; i++) {
+            g.setColor(new java.awt.Color(dotColors[i]));
+            g.fillOval(12 + i * 20, 8, 12, 12);
+        }
+        // Text
+        int fs = Math.max(10, Math.min(fontSize, 32));
+        g.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, fs));
+        g.setColor(dark ? new java.awt.Color(204, 204, 204) : new java.awt.Color(50, 50, 50));
+        for (int i = 0; i < lines.length; i++)
+            g.drawString(lines[i], padding, 28 + padding + i * lineH);
+        g.dispose();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        javax.imageio.ImageIO.write(img, "png", out.toFile());
+        return out;
+    }
+
+    /** Add a text caption above or below an image. */
+    public Path addCaption(Path src, String caption, String position) throws IOException {
+        java.awt.image.BufferedImage orig = javax.imageio.ImageIO.read(src.toFile());
+        int capH = 40, fs = 16;
+        int w = orig.getWidth(), h = orig.getHeight() + capH;
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setColor(java.awt.Color.WHITE);
+        g.fillRect(0, 0, w, h);
+        boolean top = "top".equalsIgnoreCase(position);
+        g.drawImage(orig, 0, top ? capH : 0, null);
+        g.setColor(new java.awt.Color(40, 40, 40));
+        g.setFont(new java.awt.Font("SansSerif", java.awt.Font.ITALIC, fs));
+        java.awt.FontMetrics fm = g.getFontMetrics();
+        String cap = caption == null ? "" : caption;
+        int tx = (w - fm.stringWidth(cap)) / 2;
+        int ty = top ? (capH + fm.getAscent()) / 2 + 2 : h - (capH - fm.getAscent()) / 2;
+        g.drawString(cap, tx, ty);
+        g.dispose();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        javax.imageio.ImageIO.write(img, "png", out.toFile());
+        return out;
+    }
+
+    /** Generate a QR code with a logo image overlaid in the center. */
+    public Path qrWithLogo(String content, int size, Path logoPath) throws Exception {
+        // Generate QR at higher error correction to survive logo overlay
+        java.util.Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.HashMap<>();
+        hints.put(com.google.zxing.EncodeHintType.ERROR_CORRECTION, com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.H);
+        hints.put(com.google.zxing.EncodeHintType.MARGIN, 1);
+        int sz = Math.min(Math.max(size, 100), 1000);
+        com.google.zxing.common.BitMatrix matrix = new com.google.zxing.qrcode.QRCodeWriter()
+                .encode(content, com.google.zxing.BarcodeFormat.QR_CODE, sz, sz, hints);
+        java.awt.image.BufferedImage qr = new java.awt.image.BufferedImage(sz, sz, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int x = 0; x < sz; x++)
+            for (int y = 0; y < sz; y++)
+                qr.setRGB(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
+        // Overlay logo
+        if (logoPath != null && logoPath.toFile().exists()) {
+            java.awt.image.BufferedImage logo = javax.imageio.ImageIO.read(logoPath.toFile());
+            int logoSize = sz / 4;
+            java.awt.Image scaled = logo.getScaledInstance(logoSize, logoSize, java.awt.Image.SCALE_SMOOTH);
+            java.awt.Graphics2D g = qr.createGraphics();
+            int lx = (sz - logoSize) / 2, ly = (sz - logoSize) / 2;
+            g.setColor(java.awt.Color.WHITE);
+            g.fillRoundRect(lx - 4, ly - 4, logoSize + 8, logoSize + 8, 10, 10);
+            g.drawImage(scaled, lx, ly, null);
+            g.dispose();
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        javax.imageio.ImageIO.write(qr, "png", out.toFile());
+        return out;
+    }
+
+    /** Convert an image file to a base64 data URI string (saved as .txt). */
+    public Path imageToDataUri(Path src) throws IOException {
+        byte[] bytes = java.nio.file.Files.readAllBytes(src);
+        String name = src.getFileName().toString().toLowerCase();
+        String mime = name.endsWith(".png") ? "image/png" : name.endsWith(".gif") ? "image/gif"
+                    : name.endsWith(".webp") ? "image/webp" : "image/jpeg";
+        String dataUri = "data:" + mime + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        java.nio.file.Files.writeString(out, dataUri);
+        return out;
+    }
+
     /** Generate a pixel-diff image highlighting differences between two images. */
     public Path compareImages(Path src1, Path src2) throws IOException {
         BufferedImage img1 = ImageIO.read(src1.toFile());

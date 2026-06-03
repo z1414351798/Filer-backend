@@ -36,6 +36,18 @@ public class ArchiveService {
         return out;
     }
 
+    /** Create a password-protected ZIP using Zip4j (AES-256 encryption). */
+    public Path createEncryptedZip(List<Path> sources, String password) throws Exception {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".zip");
+        net.lingala.zip4j.ZipFile zipFile = new net.lingala.zip4j.ZipFile(out.toFile(), password.toCharArray());
+        net.lingala.zip4j.model.ZipParameters params = new net.lingala.zip4j.model.ZipParameters();
+        params.setEncryptFiles(true);
+        params.setEncryptionMethod(net.lingala.zip4j.model.enums.EncryptionMethod.AES);
+        params.setAesKeyStrength(net.lingala.zip4j.model.enums.AesKeyStrength.KEY_STRENGTH_256);
+        for (Path src : sources) zipFile.addFile(src.toFile(), params);
+        return out;
+    }
+
     public List<Path> extractZip(Path zipFile) throws IOException {
         String extractDir = outputDir + "/" + UUID.randomUUID();
         Files.createDirectories(Paths.get(extractDir));

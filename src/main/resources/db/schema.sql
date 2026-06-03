@@ -65,3 +65,14 @@ CREATE TABLE IF NOT EXISTS conversion_preset (
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id)
 );
+
+CREATE TABLE IF NOT EXISTS api_key (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT NOT NULL,
+    key_value   VARCHAR(64) NOT NULL UNIQUE,
+    name        VARCHAR(100),
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_used   DATETIME,
+    active      BOOLEAN DEFAULT TRUE,
+    INDEX idx_key_value (key_value)
+);

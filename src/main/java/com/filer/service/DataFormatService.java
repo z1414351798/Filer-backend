@@ -742,6 +742,156 @@ public class DataFormatService {
         return out;
     }
 
+    /** Flatten nested JSON: {"a":{"b":1}} → {"a.b":1} */
+    public Path flattenJson(Path src) throws IOException {
+        com.fasterxml.jackson.databind.JsonNode root = jsonMapper.readTree(src.toFile());
+        java.util.LinkedHashMap<String, Object> flat = new java.util.LinkedHashMap<>();
+        flattenNode("", root, flat);
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(flat));
+        return out;
+    }
+
+    private void flattenNode(String prefix, com.fasterxml.jackson.databind.JsonNode node, java.util.Map<String,Object> result) {
+        if (node.isObject()) {
+            node.fields().forEachRemaining(e -> flattenNode(prefix.isEmpty() ? e.getKey() : prefix + "." + e.getKey(), e.getValue(), result));
+        } else if (node.isArray()) {
+            for (int i = 0; i < node.size(); i++) flattenNode(prefix + "[" + i + "]", node.get(i), result);
+        } else {
+            result.put(prefix, node.isNumber() ? node.numberValue() : node.isBoolean() ? node.booleanValue() : node.asText());
+        }
+    }
+
+    /** Unflatten dot-notation JSON: {"a.b":1} → {"a":{"b":1}} */
+    public Path unflattenJson(Path src) throws IOException {
+        com.fasterxml.jackson.databind.JsonNode root = jsonMapper.readTree(src.toFile());
+        com.fasterxml.jackson.databind.node.ObjectNode result = jsonMapper.createObjectNode();
+        root.fields().forEachRemaining(e -> {
+            String[] parts = e.getKey().split("\\.");
+            com.fasterxml.jackson.databind.node.ObjectNode cur = result;
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (!cur.has(parts[i])) cur.set(parts[i], jsonMapper.createObjectNode());
+                cur = (com.fasterxml.jackson.databind.node.ObjectNode) cur.get(parts[i]);
+            }
+            cur.set(parts[parts.length-1], e.getValue());
+        });
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(result));
+        return out;
+    }
+
+    /** Remove duplicate rows from a CSV (keeps first occurrence). */
+    public Path dedupCsv(Path src) throws IOException {
+        List<String> lines = Files.readAllLines(src);
+        if (lines.isEmpty()) { Path out = Paths.get(outputDir, UUID.randomUUID()+".csv"); Files.writeString(out,""); return out; }
+        java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
+        StringBuilder sb = new StringBuilder();
+        sb.append(lines.get(0)).append('\n'); // header always kept
+        int dupes = 0;
+        for (int i = 1; i < lines.size(); i++) {
+            if (seen.add(lines.get(i))) sb.append(lines.get(i)).append('\n');
+            else dupes++;
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".csv");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Sort CSV rows by the given column name (or 1-based column index). */
+    public Path sortCsv(Path src, String column, boolean ascending) throws IOException {
+        List<String> lines = Files.readAllLines(src);
+        if (lines.size() <= 1) { Path out = Paths.get(outputDir, UUID.randomUUID()+".csv"); Files.writeString(out, lines.isEmpty() ? "" : lines.get(0)); return out; }
+        String[] headers = parseCsvLine(lines.get(0));
+        int colIdx = 0;
+        try { colIdx = Integer.parseInt(column) - 1; } catch (NumberFormatException e) {
+            for (int i = 0; i < headers.length; i++) if (headers[i].trim().equalsIgnoreCase(column)) { colIdx = i; break; }
+        }
+        final int ci = Math.min(Math.max(colIdx, 0), headers.length - 1);
+        List<String> data = new java.util.ArrayList<>(lines.subList(1, lines.size()));
+        data.sort((a, b) -> {
+            String[] ac = parseCsvLine(a), bc = parseCsvLine(b);
+            String av = ci < ac.length ? ac[ci] : "", bv = ci < bc.length ? bc[ci] : "";
+            int cmp; try { cmp = Double.compare(Double.parseDouble(av), Double.parseDouble(bv)); } catch (NumberFormatException e) { cmp = av.compareToIgnoreCase(bv); }
+            return ascending ? cmp : -cmp;
+        });
+        StringBuilder sb = new StringBuilder(lines.get(0)).append('\n');
+        data.forEach(r -> sb.append(r).append('\n'));
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".csv");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Convert a number between bases: decimal, binary, octal, hex. */
+    public Path convertNumberBase(String input, String from, String to) throws IOException {
+        String cleaned = (input == null ? "0" : input.trim()).replaceAll("\\s","");
+        int fromBase = baseValue(from);
+        int toBase   = baseValue(to);
+        // Parse as BigInteger to handle large numbers
+        java.math.BigInteger value;
+        try {
+            if (cleaned.startsWith("-")) {
+                value = new java.math.BigInteger("-" + cleaned.substring(1), fromBase);
+            } else {
+                value = new java.math.BigInteger(cleaned.replace("0x","").replace("0b","").replace("0o",""), fromBase);
+            }
+        } catch (NumberFormatException e) {
+            value = java.math.BigInteger.ZERO;
+        }
+        String result = value.toString(toBase).toUpperCase();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Input  (").append(baseName(from)).append("): ").append(input).append("\n");
+        sb.append("Output (").append(baseName(to)).append("): ").append(result).append("\n\n");
+        sb.append("All representations:\n");
+        sb.append("  Decimal: ").append(value.toString(10)).append("\n");
+        sb.append("  Binary:  ").append(value.toString(2)).append("\n");
+        sb.append("  Octal:   ").append(value.toString(8)).append("\n");
+        sb.append("  Hex:     ").append(value.toString(16).toUpperCase()).append("\n");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+    private int baseValue(String s) {
+        if (s == null) return 10;
+        return switch (s.toLowerCase()) { case "binary","bin","2" -> 2; case "octal","oct","8" -> 8; case "hex","hexadecimal","16" -> 16; default -> 10; };
+    }
+    private String baseName(String s) {
+        return switch (baseValue(s)) { case 2 -> "Binary"; case 8 -> "Octal"; case 16 -> "Hexadecimal"; default -> "Decimal"; };
+    }
+
+    /** Describe a cron expression and show next 5 run times. */
+    public Path describeCron(String expression) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Expression: ").append(expression).append("\n\n");
+        try {
+            com.cronutils.model.definition.CronDefinition def;
+            try {
+                def = com.cronutils.model.definition.CronDefinitionBuilder.instanceDefinitionFor(com.cronutils.model.CronType.QUARTZ);
+            } catch (Exception e) {
+                def = com.cronutils.model.definition.CronDefinitionBuilder.instanceDefinitionFor(com.cronutils.model.CronType.UNIX);
+            }
+            com.cronutils.model.Cron cron = new com.cronutils.parser.CronParser(def).parse(expression);
+            com.cronutils.descriptor.CronDescriptor descriptor = com.cronutils.descriptor.CronDescriptor.instance(java.util.Locale.ENGLISH);
+            sb.append("Description: ").append(descriptor.describe(cron)).append("\n\n");
+            sb.append("Next 5 executions:\n");
+            com.cronutils.model.time.ExecutionTime et = com.cronutils.model.time.ExecutionTime.forCron(cron);
+            java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
+            for (int i = 0; i < 5; i++) {
+                java.util.Optional<java.time.ZonedDateTime> next = et.nextExecution(now);
+                if (next.isEmpty()) break;
+                now = next.get();
+                sb.append("  ").append(now.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"))).append("\n");
+            }
+        } catch (Exception e) {
+            sb.append("Error parsing cron: ").append(e.getMessage()).append("\n");
+            sb.append("Supported formats: QUARTZ (6-7 fields) and UNIX (5 fields)\n");
+            sb.append("Example UNIX:   0 12 * * MON-FRI\n");
+            sb.append("Example QUARTZ: 0 0 12 * * MON-FRI\n");
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
     /** Convert CSV to XML. */
     public Path csvToXml(Path src) throws IOException {
         List<String> lines = Files.readAllLines(src);
