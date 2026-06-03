@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.filer.mapper.PresetMapper">
+    <resultMap id="presetMap" type="com.filer.model.ConversionPreset">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="conversionType" column="conversion_type"/>
+        <result property="paramsJson" column="params_json"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO conversion_preset(user_id, name, conversion_type, params_json, created_at)
+        VALUES(#{userId}, #{name}, #{conversionType}, #{paramsJson}, NOW())
+    </insert>
+
+    <select id="findByUserId" resultMap="presetMap">
+        SELECT * FROM conversion_preset WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+
+    <select id="findById" resultMap="presetMap">
+        SELECT * FROM conversion_preset WHERE id = #{id} LIMIT 1
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM conversion_preset WHERE id = #{id}
+    </delete>
+</mapper>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.filer.mapper.ShareLinkMapper">
+    <resultMap id="shareLinkMap" type="com.filer.model.ShareLink">
+        <id property="id" column="id"/>
+        <result property="token" column="token"/>
+        <result property="fileId" column="file_id"/>
+        <result property="createdByUserId" column="created_by_user_id"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO share_link(token, file_id, created_by_user_id, expires_at, created_at)
+        VALUES(#{token}, #{fileId}, #{createdByUserId}, #{expiresAt}, NOW())
+    </insert>
+
+    <select id="findByToken" resultMap="shareLinkMap">
+        SELECT * FROM share_link WHERE token = #{token} LIMIT 1
+    </select>
+
+    <delete id="deleteExpired">
+        DELETE FROM share_link WHERE expires_at &lt; NOW()
+    </delete>
+</mapper>
