@@ -6,6 +6,7 @@ import com.filer.dto.JobResponse;
 import com.filer.model.FileRecord;
 import com.filer.model.enums.ConversionType;
 import com.filer.service.*;
+import com.filer.service.FontPreviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -41,6 +42,7 @@ public class FileConversionConsumer {
     private final FileEncryptionService fileEncryptionService;
     private final WebSocketProgressService wsProgressService;
     private final EmailService emailService;
+    private final FontPreviewService fontPreviewService;
 
     @KafkaListener(topics = "file-conversion", groupId = "filer-group",
             containerFactory = "kafkaListenerContainerFactory")
@@ -235,6 +237,29 @@ public class FileConversionConsumer {
                 Path src2 = fileStorageService.getFilePath(str(p,"diffFileId"));
                 yield imageEnhancementService.compareImages(src, src2);
             }
+            case RTF_TO_TEXT  -> officeService.rtfToText(src);
+            case RTF_TO_PDF   -> officeService.rtfToPdf(src);
+            case EXCEL_MERGE -> {
+                List<Path> paths = listOf(p,"fileIds").stream()
+                        .map(id -> fileStorageService.getFilePath(id)).toList();
+                yield officeService.mergeExcel(paths);
+            }
+            case CSV_TO_HTML       -> dataFormatService.csvToHtml(src);
+            case JSON_TO_HTML      -> dataFormatService.jsonToHtml(src);
+            case TEXT_CASE_CONVERT -> dataFormatService.convertTextCase(src, str(p,"caseType"));
+            case SUBTITLE_SRT_TO_VTT -> dataFormatService.srtToVtt(src);
+            case VTT_TO_SRT          -> dataFormatService.vttToSrt(src);
+            case VIDEO_EXTRACT_FRAMES -> {
+                List<Path> frames = videoService.extractFrames(src, intOrDef(p,"frameInterval",5));
+                yield archiveService.createZip(frames, null);
+            }
+            case VIDEO_ADD_WATERMARK -> videoService.addVideoWatermark(src, str(p,"videoWatermarkText"));
+            case IMAGE_TO_ICO        -> imageEnhancementService.imageToIco(src);
+            case PDF_CROP_MARGINS    -> pdfEnhancementService.cropMargins(src,
+                                          intOrDef(p,"cropTop",36), intOrDef(p,"cropRight",36),
+                                          intOrDef(p,"cropBottom",36), intOrDef(p,"cropLeft",36));
+            case PDF_REORDER_PAGES   -> pdfEnhancementService.reorderPages(src, str(p,"pageOrder"));
+            case FONT_PREVIEW        -> fontPreviewService.generateFontPreview(src);
             // Office → PDF
             case DOCX_TO_PDF -> officeService.officeToPdf(src);
             case XLSX_TO_PDF -> officeService.officeToPdf(src);
@@ -284,6 +309,9 @@ public class FileConversionConsumer {
             case "ogg"        -> "audio/ogg";
             case "aac","m4a"  -> "audio/aac";
             case "flac"       -> "audio/flac";
+            case "ico"        -> "image/x-icon";
+            case "vtt"        -> "text/vtt";
+            case "srt"        -> "text/plain";
             default           -> "application/octet-stream";
         };
     }

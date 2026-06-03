@@ -81,4 +81,20 @@ public class JobRequest {
     // Notifications
     private String notifyEmail;
     private String webhookUrl;
+
+    // PDF crop margins (points, 1 point ≈ 0.35mm)
+    private Integer cropTop;
+    private Integer cropRight;
+    private Integer cropBottom;
+    private Integer cropLeft;
+    // PDF reorder pages
+    private String pageOrder;   // e.g. "3,1,2"
+    // Text case convert
+    private String caseType;    // upper|lower|title|camel|snake|kebab
+    // Video extract frames
+    private Integer frameInterval;  // seconds between frames
+    // Video watermark
+    private String videoWatermarkText;
+    // Excel merge / multi-file
+    // (reuses existing fileIds field)
 }

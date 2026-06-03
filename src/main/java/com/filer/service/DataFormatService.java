@@ -230,6 +230,155 @@ public class DataFormatService {
         return out;
     }
 
+    /** Render a CSV file as an HTML table. */
+    public Path csvToHtml(Path src) throws IOException {
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">")
+            .append("<style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:left}")
+            .append("th{background:#f0f0f0}tr:nth-child(even){background:#fafafa}</style></head><body><table>\n");
+        try (java.io.BufferedReader reader = Files.newBufferedReader(src)) {
+            boolean header = true;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                html.append("<tr>");
+                for (String cell : parseCsvLine(line)) {
+                    String tag = header ? "th" : "td";
+                    html.append("<").append(tag).append(">")
+                        .append(escHtml(cell)).append("</").append(tag).append(">");
+                }
+                html.append("</tr>\n");
+                header = false;
+            }
+        }
+        html.append("</table></body></html>");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".html");
+        Files.writeString(out, html.toString());
+        return out;
+    }
+
+    /** Render a JSON array-of-objects as an HTML table. */
+    public Path jsonToHtml(Path src) throws IOException {
+        JsonNode root = jsonMapper.readTree(src.toFile());
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">")
+            .append("<style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:left}")
+            .append("th{background:#f0f0f0}tr:nth-child(even){background:#fafafa}</style></head><body><table>\n");
+        if (root.isArray() && root.size() > 0) {
+            List<String> keys = new java.util.ArrayList<>();
+            root.get(0).fieldNames().forEachRemaining(keys::add);
+            html.append("<tr>");
+            for (String k : keys) html.append("<th>").append(escHtml(k)).append("</th>");
+            html.append("</tr>\n");
+            for (JsonNode row : root) {
+                html.append("<tr>");
+                for (String k : keys) {
+                    JsonNode v = row.get(k);
+                    html.append("<td>").append(escHtml(v == null ? "" : v.asText())).append("</td>");
+                }
+                html.append("</tr>\n");
+            }
+        }
+        html.append("</table></body></html>");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".html");
+        Files.writeString(out, html.toString());
+        return out;
+    }
+
+    /** Convert text case. caseType: upper | lower | title | camel | snake | kebab */
+    public Path convertTextCase(Path src, String caseType) throws IOException {
+        String text = Files.readString(src, java.nio.charset.StandardCharsets.UTF_8);
+        String result = switch (caseType == null ? "upper" : caseType.toLowerCase()) {
+            case "lower"  -> text.toLowerCase();
+            case "title"  -> toTitleCase(text);
+            case "camel"  -> toCamelCase(text);
+            case "snake"  -> toSnakeCase(text);
+            case "kebab"  -> toKebabCase(text);
+            default       -> text.toUpperCase();
+        };
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, result);
+        return out;
+    }
+
+    private String toTitleCase(String s) {
+        StringBuilder sb = new StringBuilder();
+        boolean cap = true;
+        for (char c : s.toCharArray()) {
+            sb.append(cap && Character.isLetter(c) ? Character.toUpperCase(c) : c);
+            cap = !Character.isLetterOrDigit(c);
+        }
+        return sb.toString();
+    }
+    private String toCamelCase(String s) {
+        String[] words = s.trim().split("[\\s_\\-]+");
+        StringBuilder sb = new StringBuilder(words[0].toLowerCase());
+        for (int i = 1; i < words.length; i++)
+            if (!words[i].isEmpty())
+                sb.append(Character.toUpperCase(words[i].charAt(0))).append(words[i].substring(1).toLowerCase());
+        return sb.toString();
+    }
+    private String toSnakeCase(String s) {
+        return s.trim().replaceAll("[\\s\\-]+","_").replaceAll("([a-z])([A-Z])","$1_$2").toLowerCase();
+    }
+    private String toKebabCase(String s) {
+        return s.trim().replaceAll("[\\s_]+","-").replaceAll("([a-z])([A-Z])","$1-$2").toLowerCase();
+    }
+
+    /** Convert SRT subtitle format to WebVTT. */
+    public Path srtToVtt(Path src) throws IOException {
+        String srt = Files.readString(src, java.nio.charset.StandardCharsets.UTF_8);
+        String vtt = "WEBVTT\n\n" + srt
+                .replaceAll("(?m)^(\\d+)$\n", "")           // remove cue numbers
+                .replace(",", ".")                            // SRT uses comma, VTT uses dot in timestamps
+                .replaceAll("(\\d{2}:\\d{2}:\\d{2}\\.\\d{3}) --> (\\d{2}:\\d{2}:\\d{2}\\.\\d{3})",
+                            "$1 --> $2\n");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".vtt");
+        Files.writeString(out, vtt);
+        return out;
+    }
+
+    /** Convert WebVTT subtitle format to SRT. */
+    public Path vttToSrt(Path src) throws IOException {
+        String vtt = Files.readString(src, java.nio.charset.StandardCharsets.UTF_8);
+        // Remove WEBVTT header and NOTE blocks
+        String body = vtt.replaceFirst("WEBVTT[^\n]*\n", "")
+                         .replaceAll("NOTE[^\n]*\n[^\n]*\n", "");
+        // Replace dot-timestamps with comma
+        body = body.replaceAll("(\\d{2}:\\d{2}:\\d{2})\\.(\\d{3})", "$1,$2");
+        // Re-number cues
+        StringBuilder sb = new StringBuilder();
+        int cue = 1;
+        for (String block : body.split("\n\n")) {
+            block = block.trim();
+            if (block.isEmpty()) continue;
+            // Skip blocks that are just metadata (no --> )
+            if (!block.contains("-->")) continue;
+            sb.append(cue++).append('\n').append(block).append("\n\n");
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".srt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    private String escHtml(String s) {
+        return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
+    }
+
+    private String[] parseCsvLine(String line) {
+        // Simple CSV split respecting quoted fields
+        List<String> fields = new java.util.ArrayList<>();
+        boolean inQuote = false;
+        StringBuilder cur = new StringBuilder();
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') { inQuote = !inQuote; }
+            else if (c == ',' && !inQuote) { fields.add(cur.toString()); cur.setLength(0); }
+            else cur.append(c);
+        }
+        fields.add(cur.toString());
+        return fields.toArray(new String[0]);
+    }
+
     /** Merge multiple CSV files (must all have same headers). */
     public Path mergeCsv(List<Path> sources) throws IOException {
         Path out = Paths.get(outputDir, UUID.randomUUID() + ".csv");

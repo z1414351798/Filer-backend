@@ -163,4 +163,46 @@ public class PdfEnhancementService {
     private String escapeHtml(String s) {
         return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
     }
+
+    /**
+     * Crop all pages by removing equal margins (points) from each side.
+     * cropAll=single value applies to all sides; or specify top/right/bottom/left.
+     */
+    public Path cropMargins(Path src, int top, int right, int bottom, int left) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            for (PDPage page : doc.getPages()) {
+                PDRectangle mb = page.getMediaBox();
+                PDRectangle crop = new PDRectangle(
+                    mb.getLowerLeftX()  + left,
+                    mb.getLowerLeftY()  + bottom,
+                    mb.getWidth()  - left - right,
+                    mb.getHeight() - top  - bottom
+                );
+                page.setCropBox(crop);
+            }
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            doc.save(out.toFile());
+            return out;
+        }
+    }
+
+    /**
+     * Reorder PDF pages. {@code pageOrder} is a comma-separated list of 1-based page numbers,
+     * e.g. "3,1,2" puts page 3 first, then 1, then 2.
+     */
+    public Path reorderPages(Path src, String pageOrder) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            String[] parts = pageOrder.split("[,\\s]+");
+            try (PDDocument result = new PDDocument()) {
+                for (String part : parts) {
+                    int idx = Integer.parseInt(part.trim()) - 1;
+                    if (idx >= 0 && idx < doc.getNumberOfPages())
+                        result.addPage(doc.getPage(idx));
+                }
+                Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+                result.save(out.toFile());
+                return out;
+            }
+        }
+    }
 }

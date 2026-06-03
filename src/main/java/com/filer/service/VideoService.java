@@ -133,6 +133,51 @@ public class VideoService {
         return compressVideo(src, 70);
     }
 
+    /**
+     * Extract one frame every {@code intervalSec} seconds as PNG images, zip them.
+     * Uses JAVE2 image2 format.
+     */
+    public List<Path> extractFrames(Path src, int intervalSec) throws Exception {
+        int fps = Math.max(1, intervalSec) == 1 ? 1 : 1; // 1 frame per intervalSec
+        Path frameDir = Paths.get(outputDir, "frames-" + UUID.randomUUID());
+        java.nio.file.Files.createDirectories(frameDir);
+        // Use ffmpeg via ProcessBuilder for frame extraction (JAVE2 doesn't support output patterns)
+        List<String> cmd = List.of(
+            "ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-vf", "fps=1/" + Math.max(1, intervalSec),
+            frameDir.resolve("frame-%04d.png").toString()
+        );
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        if (code != 0) throw new java.io.IOException("ffmpeg frame extract failed: " + log);
+        return java.nio.file.Files.list(frameDir)
+                .filter(f -> f.toString().endsWith(".png"))
+                .sorted()
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Overlay a text watermark on a video using ffmpeg drawtext filter.
+     */
+    public Path addVideoWatermark(Path src, String text) throws Exception {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        String safeText = (text == null || text.isBlank()) ? "WATERMARK" : text.replace("'", "\\'");
+        List<String> cmd = List.of(
+            "ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-vf", "drawtext=text='" + safeText + "':fontcolor=white:fontsize=36:alpha=0.6:x=(w-text_w)/2:y=h-th-20",
+            "-codec:a", "copy",
+            out.toAbsolutePath().toString()
+        );
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        if (code != 0) throw new java.io.IOException("ffmpeg watermark failed: " + log);
+        return out;
+    }
+
     /** Concatenate multiple audio files into one MP3 using FFmpeg filter_complex. */
     public Path mergeAudio(List<Path> sources) throws Exception {
         if (sources.size() == 1) return convertAudio(sources.get(0), "mp3");

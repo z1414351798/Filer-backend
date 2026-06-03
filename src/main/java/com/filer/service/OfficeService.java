@@ -6,7 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import javax.swing.text.rtf.RTFEditorKit;
+import javax.swing.text.Document;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -133,6 +140,98 @@ public class OfficeService {
             }
         }
         return images;
+    }
+
+    /** Convert RTF file to plain text. */
+    public Path rtfToText(Path src) throws Exception {
+        RTFEditorKit kit = new RTFEditorKit();
+        Document doc = kit.createDefaultDocument();
+        try (java.io.InputStream is = Files.newInputStream(src)) {
+            kit.read(is, doc, 0);
+        }
+        String text = doc.getText(0, doc.getLength());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, text);
+        return out;
+    }
+
+    /** Convert RTF file to PDF (text-based, preserves paragraphs). */
+    public Path rtfToPdf(Path src) throws Exception {
+        RTFEditorKit kit = new RTFEditorKit();
+        Document doc = kit.createDefaultDocument();
+        try (java.io.InputStream is = Files.newInputStream(src)) {
+            kit.read(is, doc, 0);
+        }
+        String text = doc.getText(0, doc.getLength());
+        // Use PDFBox to write text as a PDF
+        try (PDDocument pdf = new PDDocument()) {
+            PDType1Font font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            float margin = 50, lineHeight = 14, fontSize = 11;
+            float pageW = PDRectangle.A4.getWidth(), pageH = PDRectangle.A4.getHeight();
+            float maxY = pageH - margin;
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDPageContentStream cs = new PDPageContentStream(pdf, page);
+            cs.beginText();
+            cs.setFont(font, fontSize);
+            cs.newLineAtOffset(margin, maxY);
+            float y = maxY;
+            for (String line : text.split("\n")) {
+                // wrap long lines
+                while (line.length() > 90) {
+                    cs.showText(line.substring(0, 90));
+                    cs.newLineAtOffset(0, -lineHeight);
+                    y -= lineHeight;
+                    line = line.substring(90);
+                    if (y < margin) {
+                        cs.endText(); cs.close();
+                        page = new PDPage(PDRectangle.A4);
+                        pdf.addPage(page);
+                        cs = new PDPageContentStream(pdf, page);
+                        cs.beginText(); cs.setFont(font, fontSize);
+                        cs.newLineAtOffset(margin, maxY); y = maxY;
+                    }
+                }
+                cs.showText(line);
+                cs.newLineAtOffset(0, -lineHeight);
+                y -= lineHeight;
+                if (y < margin) {
+                    cs.endText(); cs.close();
+                    page = new PDPage(PDRectangle.A4);
+                    pdf.addPage(page);
+                    cs = new PDPageContentStream(pdf, page);
+                    cs.beginText(); cs.setFont(font, fontSize);
+                    cs.newLineAtOffset(margin, maxY); y = maxY;
+                }
+            }
+            cs.endText(); cs.close();
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            pdf.save(out.toFile());
+            return out;
+        }
+    }
+
+    /** Merge multiple Excel files: each file contributes its first sheet as a new sheet in the output. */
+    public Path mergeExcel(List<Path> sources) throws IOException {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".xlsx");
+        try (XSSFWorkbook outWb = new XSSFWorkbook()) {
+            for (int fi = 0; fi < sources.size(); fi++) {
+                try (Workbook srcWb = WorkbookFactory.create(sources.get(fi).toFile())) {
+                    Sheet srcSheet = srcWb.getSheetAt(0);
+                    Sheet dstSheet = outWb.createSheet("Sheet" + (fi + 1));
+                    DataFormatter fmt = new DataFormatter();
+                    for (Row srcRow : srcSheet) {
+                        Row dstRow = dstSheet.createRow(srcRow.getRowNum());
+                        for (Cell srcCell : srcRow) {
+                            dstRow.createCell(srcCell.getColumnIndex())
+                                  .setCellValue(fmt.formatCellValue(srcCell));
+                        }
+                    }
+                }
+            }
+            try (OutputStream os = Files.newOutputStream(out)) { outWb.write(os); }
+        }
+        return out;
     }
 
     /** Convert a JSON array-of-objects to an XLSX workbook. */

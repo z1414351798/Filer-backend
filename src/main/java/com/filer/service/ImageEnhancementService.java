@@ -164,6 +164,56 @@ public class ImageEnhancementService {
         g.drawString(text, x, y);
     }
 
+    /**
+     * Convert image to Windows ICO format (16×16 and 32×32 embedded).
+     * Writes a minimal ICO file manually (no external lib needed).
+     */
+    public Path imageToIco(Path src) throws IOException {
+        BufferedImage orig = ImageIO.read(src.toFile());
+        int[] sizes = {16, 32};
+        // Pre-render each size as a BMP-like ARGB image
+        List<byte[]> bmps = new java.util.ArrayList<>();
+        for (int size : sizes) {
+            java.awt.image.BufferedImage scaled = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D g = scaled.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g.drawImage(orig.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
+            g.dispose();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            ImageIO.write(scaled, "png", baos);
+            bmps.add(baos.toByteArray());
+        }
+
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".ico");
+        try (java.io.DataOutputStream dos = new java.io.DataOutputStream(
+                new java.io.BufferedOutputStream(Files.newOutputStream(out)))) {
+            // ICO header
+            dos.writeShort(leShort(0));          // reserved
+            dos.writeShort(leShort(1));          // type: ICO
+            dos.writeShort(leShort(sizes.length)); // image count
+
+            // Directory entries (6-byte header + 16-byte entries each)
+            int offset = 6 + 16 * sizes.length;
+            for (int i = 0; i < sizes.length; i++) {
+                dos.writeByte(sizes[i]);  // width
+                dos.writeByte(sizes[i]);  // height
+                dos.writeByte(0);         // color count (0 = more than 256)
+                dos.writeByte(0);         // reserved
+                dos.writeShort(leShort(1));  // color planes
+                dos.writeShort(leShort(32)); // bits per pixel
+                dos.writeInt(leInt(bmps.get(i).length)); // data size
+                dos.writeInt(leInt(offset));              // data offset
+                offset += bmps.get(i).length;
+            }
+            // Image data
+            for (byte[] bmp : bmps) dos.write(bmp);
+        }
+        return out;
+    }
+
+    private short leShort(int v) { return Short.reverseBytes((short) v); }
+    private int leInt(int v) { return Integer.reverseBytes(v); }
+
     /** Generate a pixel-diff image highlighting differences between two images. */
     public Path compareImages(Path src1, Path src2) throws IOException {
         BufferedImage img1 = ImageIO.read(src1.toFile());

@@ -55,4 +55,20 @@ public enum ConversionType {
     PDF_TO_HTML, PDF_LINEARIZE,
     // Image extras
     IMAGE_ASCII_ART, IMAGE_MEME, IMAGE_COMPARE,
+    // RTF
+    RTF_TO_PDF, RTF_TO_TEXT,
+    // HTML tables
+    CSV_TO_HTML, JSON_TO_HTML,
+    // Text utilities
+    TEXT_CASE_CONVERT, SUBTITLE_SRT_TO_VTT, VTT_TO_SRT,
+    // Video extras
+    VIDEO_EXTRACT_FRAMES, VIDEO_ADD_WATERMARK,
+    // Image extras
+    IMAGE_TO_ICO,
+    // PDF extras
+    PDF_CROP_MARGINS, PDF_REORDER_PAGES,
+    // Office extras
+    EXCEL_MERGE,
+    // Font
+    FONT_PREVIEW,
 }
