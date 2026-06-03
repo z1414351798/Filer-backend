@@ -1,5 +1,7 @@
 package com.filer.kafka;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filer.dto.JobResponse;
 import com.filer.model.FileRecord;
 import com.filer.model.enums.ConversionType;
@@ -22,6 +24,7 @@ public class FileConversionConsumer {
 
     private final JobService jobService;
     private final FileStorageService fileStorageService;
+    private final ObjectMapper objectMapper;
     private final ImageService imageService;
     private final ImageFilterService imageFilterService;
     private final ImageEnhancementService imageEnhancementService;
@@ -40,7 +43,16 @@ public class FileConversionConsumer {
 
     @KafkaListener(topics = "file-conversion", groupId = "filer-group",
             containerFactory = "kafkaListenerContainerFactory")
-    public void consume(Map<String, Object> payload, Acknowledgment ack) {
+    public void consume(String message, Acknowledgment ack) {
+        Map<String, Object> payload;
+        try {
+            payload = objectMapper.readValue(message, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.error("Failed to parse Kafka message: {}", e.getMessage());
+            ack.acknowledge();
+            return;
+        }
+
         String jobId = str(payload, "jobId");
         String fileId = str(payload, "fileId");
         String typeStr = str(payload, "conversionType");
@@ -81,14 +93,12 @@ public class FileConversionConsumer {
 
     private Path dispatch(ConversionType type, Path src, Map<String, Object> p) throws Exception {
         return switch (type) {
-            // ── Image format ──
             case IMAGE_TO_PNG  -> imageService.convertFormat(src, "png");
             case IMAGE_TO_JPG  -> imageService.convertFormat(src, "jpg");
             case IMAGE_TO_WEBP -> imageService.convertFormat(src, "webp");
             case IMAGE_TO_BMP  -> imageService.convertFormat(src, "bmp");
             case IMAGE_TO_GIF  -> imageService.convertFormat(src, "gif");
             case IMAGE_TO_TIFF -> imageService.convertFormat(src, "tiff");
-            // ── Image edit ──
             case IMAGE_RESIZE     -> imageService.resize(src, intOf(p,"targetWidth"), intOf(p,"targetHeight"));
             case IMAGE_COMPRESS   -> imageService.compress(src, intOrDef(p,"quality",75) / 100f);
             case IMAGE_ROTATE     -> imageService.rotate(src, intOf(p,"rotateDegrees"));
@@ -96,16 +106,13 @@ public class FileConversionConsumer {
             case IMAGE_FLIP_V     -> imageService.flip(src, false);
             case IMAGE_GRAYSCALE  -> imageService.grayscale(src);
             case IMAGE_WATERMARK  -> imageService.addWatermark(src, str(p,"watermarkText"));
-            // ── Image filters ──
-            case IMAGE_CROP       -> imageFilterService.crop(src,
-                                       intOf(p,"cropX"), intOf(p,"cropY"),
+            case IMAGE_CROP       -> imageFilterService.crop(src, intOf(p,"cropX"), intOf(p,"cropY"),
                                        intOf(p,"cropWidth"), intOf(p,"cropHeight"));
             case IMAGE_SEPIA      -> imageFilterService.sepia(src);
             case IMAGE_INVERT     -> imageFilterService.invert(src);
             case IMAGE_BLUR       -> imageFilterService.blur(src, intOrDef(p,"blurRadius",3));
             case IMAGE_SHARPEN    -> imageFilterService.sharpen(src);
             case IMAGE_BRIGHTNESS -> imageFilterService.brightness(src, floatOf(p,"brightness"));
-            // ── Image enhance ──
             case IMAGE_COLLAGE -> {
                 List<File> files = listOf(p,"fileIds").stream()
                         .map(id -> fileStorageService.getFilePath(id).toFile()).toList();
@@ -117,7 +124,6 @@ public class FileConversionConsumer {
                                           intOrDef(p,"cornerRadius",30));
             case IMAGE_COLOR_PALETTE -> imageEnhancementService.extractColorPalette(src,
                                           intOrDef(p,"paletteCount",6));
-            // ── PDF ──
             case PDF_MERGE -> {
                 List<Path> paths = listOf(p,"fileIds").stream()
                         .map(id -> fileStorageService.getFilePath(id)).toList();
@@ -145,10 +151,8 @@ public class FileConversionConsumer {
             case PDF_PAGE_ROTATE  -> pdfEnhancementService.rotatePage(src,
                                        intOrDef(p,"pageIndex",0), intOrDef(p,"rotateDegrees",90));
             case PDF_TO_DOCX      -> pdfEnhancementService.pdfToText(src);
-            // ── OCR ──
             case OCR_IMAGE -> ocrService.ocrImage(src);
             case OCR_PDF   -> ocrService.ocrPdf(src);
-            // ── Archive ──
             case ZIP_CREATE -> {
                 List<Path> paths = listOf(p,"fileIds").stream()
                         .map(id -> fileStorageService.getFilePath(id)).toList();
@@ -163,19 +167,14 @@ public class FileConversionConsumer {
                         .map(id -> fileStorageService.getFilePath(id)).toList();
                 yield dataFormatService.createTar(paths);
             }
-            case TAR_EXTRACT -> dataFormatService.extractTar(src);
-            // ── Office ──
+            case TAR_EXTRACT  -> dataFormatService.extractTar(src);
             case EXCEL_TO_CSV -> officeService.excelToCsv(src);
             case CSV_TO_EXCEL -> officeService.csvToExcel(src);
             case WORD_TO_TEXT -> officeService.wordToText(src);
-            // ── QR / Barcode ──
-            case QR_GENERATE      -> qrCodeService.generateQr(
-                                       str(p,"qrContent"), intOrDef(p,"qrSize",300));
+            case QR_GENERATE      -> qrCodeService.generateQr(str(p,"qrContent"), intOrDef(p,"qrSize",300));
             case BARCODE_GENERATE -> qrCodeService.generateBarcode(
-                                       str(p,"barcodeContent"),
-                                       str(p,"barcodeFormat"), 400, 150);
+                                       str(p,"barcodeContent"), str(p,"barcodeFormat"), 400, 150);
             case QR_SCAN          -> qrCodeService.scanCode(src);
-            // ── Text / Data ──
             case CSV_TO_JSON      -> textConversionService.csvToJson(src);
             case JSON_TO_CSV      -> textConversionService.jsonToCsv(src);
             case XML_TO_JSON      -> textConversionService.xmlToJson(src);
@@ -194,16 +193,15 @@ public class FileConversionConsumer {
                 Path src2 = fileStorageService.getFilePath(str(p,"diffFileId"));
                 yield dataFormatService.textDiff(src, src2);
             }
-            // ── SVG ──
             case SVG_TO_PNG -> svgService.svgToPng(src);
             case SVG_TO_PDF -> svgService.svgToPdf(src);
-            // ── Video ──
             case VIDEO_THUMBNAIL     -> videoService.extractThumbnail(src, intOrDef(p,"videoSecond",1));
-            case VIDEO_TO_GIF        -> videoService.videoToGif(src,
-                                          intOrDef(p,"videoSecond",0),
-                                          intOrDef(p,"videoDuration",5),
-                                          intOrDef(p,"videoFps",10));
+            case VIDEO_TO_GIF        -> videoService.videoToGif(src, intOrDef(p,"videoSecond",0),
+                                          intOrDef(p,"videoDuration",5), intOrDef(p,"videoFps",10));
             case VIDEO_AUDIO_EXTRACT -> videoService.extractAudio(src);
+            // File utility types are handled via /api/info/* endpoints, not Kafka jobs
+            case FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO ->
+                throw new UnsupportedOperationException(type + " is handled by /api/info endpoints");
         };
     }
 
@@ -233,7 +231,6 @@ public class FileConversionConsumer {
         };
     }
 
-    // ── helpers ──
     private int intOf(Map<String, Object> p, String k) {
         Object v = p.get(k); if (v == null) return 0;
         return v instanceof Number n ? n.intValue() : Integer.parseInt(v.toString());
