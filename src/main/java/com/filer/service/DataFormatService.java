@@ -24,6 +24,8 @@ import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
@@ -398,6 +400,125 @@ public class DataFormatService {
                 reader.close();
             }
         }
+        return out;
+    }
+
+    /** Compute per-column statistics (count, min, max, mean, nulls) from a CSV file. */
+    public Path csvStats(Path src) throws IOException {
+        List<String> lines = Files.readAllLines(src);
+        if (lines.isEmpty()) {
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+            Files.writeString(out, "{}"); return out;
+        }
+        String[] headers = parseCsvLine(lines.get(0));
+        Map<String, Object>[] stats = new java.util.LinkedHashMap[headers.length];
+        double[] sum = new double[headers.length];
+        double[] min = new double[headers.length];
+        double[] max = new double[headers.length];
+        int[] count  = new int[headers.length];
+        int[] nulls  = new int[headers.length];
+        boolean[] numeric = new boolean[headers.length];
+        java.util.Arrays.fill(min, Double.MAX_VALUE);
+        java.util.Arrays.fill(max, -Double.MAX_VALUE);
+        java.util.Arrays.fill(numeric, true);
+        for (int r = 1; r < lines.size(); r++) {
+            String[] cells = parseCsvLine(lines.get(r));
+            for (int c = 0; c < headers.length; c++) {
+                String v = c < cells.length ? cells[c].trim() : "";
+                if (v.isEmpty()) { nulls[c]++; continue; }
+                count[c]++;
+                try {
+                    double d = Double.parseDouble(v);
+                    sum[c] += d; min[c] = Math.min(min[c], d); max[c] = Math.max(max[c], d);
+                } catch (NumberFormatException e) { numeric[c] = false; }
+            }
+        }
+        ObjectNode root = jsonMapper.createObjectNode();
+        for (int c = 0; c < headers.length; c++) {
+            ObjectNode col = jsonMapper.createObjectNode();
+            col.put("count",  count[c]);
+            col.put("nulls",  nulls[c]);
+            if (numeric[c] && count[c] > 0) {
+                col.put("min",  min[c]);
+                col.put("max",  max[c]);
+                col.put("mean", sum[c] / count[c]);
+                col.put("sum",  sum[c]);
+            }
+            root.set(headers[c], col);
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+        return out;
+    }
+
+    /** Generate N UUIDs, one per line. */
+    public Path generateUuids(int count) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < Math.min(count, 10000); i++) sb.append(java.util.UUID.randomUUID()).append('\n');
+        Path out = Paths.get(outputDir, java.util.UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Generate Lorem Ipsum paragraphs as a text file. */
+    public Path generateLoremIpsum(int paragraphs) throws IOException {
+        String[] sentences = {
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+            "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+            "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
+            "Duis aute irure dolor in reprehenderit in voluptate velit esse.",
+            "Excepteur sint occaecat cupidatat non proident, sunt in culpa.",
+            "Pellentesque habitant morbi tristique senectus et netus et malesuada.",
+            "Praesent commodo cursus magna, vel scelerisque nisl consectetur.",
+            "Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum.",
+            "Nullam quis risus eget urna mollis ornare vel eu leo.",
+            "Cras mattis consectetur purus sit amet fermentum."
+        };
+        Random rng = new Random(42);
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(Math.max(paragraphs, 1), 100);
+        for (int p = 0; p < n; p++) {
+            int sentCount = 4 + rng.nextInt(4);
+            for (int s = 0; s < sentCount; s++) sb.append(sentences[rng.nextInt(sentences.length)]).append(' ');
+            sb.append("\n\n");
+        }
+        Path out = Paths.get(outputDir, java.util.UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString().strip());
+        return out;
+    }
+
+    /**
+     * Generate a random CSV file with given column names (comma-separated) and N data rows.
+     * Column name hints: id=sequential int, name=random name, email=email, date=date, price/amount/score=number
+     */
+    public Path generateRandomCsv(String columns, int rows) throws IOException {
+        String[] cols = columns == null || columns.isBlank() ? new String[]{"id","name","email","score"}
+                : columns.split("[,;]+");
+        String[] firstNames = {"Alice","Bob","Carol","Dave","Eve","Frank","Grace","Hank","Iris","Jack"};
+        String[] lastNames  = {"Smith","Jones","Brown","Davis","Wilson","Taylor","Clark","Lee","Hall","Young"};
+        String[] domains    = {"gmail.com","yahoo.com","outlook.com","example.com","mail.com"};
+        Random rng = new Random();
+        StringBuilder sb = new StringBuilder();
+        // Header
+        for (int c = 0; c < cols.length; c++) { if (c>0) sb.append(','); sb.append(cols[c].trim()); }
+        sb.append('\n');
+        for (int r = 0; r < Math.min(rows, 10000); r++) {
+            for (int c = 0; c < cols.length; c++) {
+                if (c > 0) sb.append(',');
+                String col = cols[c].trim().toLowerCase();
+                if (col.contains("id"))    sb.append(r + 1);
+                else if (col.contains("name"))  { String n = firstNames[rng.nextInt(10)]+" "+lastNames[rng.nextInt(10)]; sb.append(n); }
+                else if (col.contains("email")) { String n = firstNames[rng.nextInt(10)].toLowerCase(); sb.append(n).append(rng.nextInt(99)).append("@").append(domains[rng.nextInt(5)]); }
+                else if (col.contains("date"))  sb.append(2020+rng.nextInt(5)).append("-").append(String.format("%02d",1+rng.nextInt(12))).append("-").append(String.format("%02d",1+rng.nextInt(28)));
+                else if (col.matches(".*(price|amount|score|salary|revenue).*")) sb.append(String.format("%.2f", 10 + rng.nextDouble() * 990));
+                else if (col.contains("age"))   sb.append(18 + rng.nextInt(50));
+                else if (col.contains("phone")) sb.append("+1").append(200+rng.nextInt(800)).append(String.format("%07d",rng.nextInt(10_000_000)));
+                else sb.append("value").append(r+1);
+            }
+            sb.append('\n');
+        }
+        Path out = Paths.get(outputDir, java.util.UUID.randomUUID() + ".csv");
+        Files.writeString(out, sb.toString());
         return out;
     }
 }

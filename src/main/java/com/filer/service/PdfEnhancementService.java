@@ -9,6 +9,11 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.cos.COSName;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -162,6 +168,87 @@ public class PdfEnhancementService {
 
     private String escapeHtml(String s) {
         return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
+    }
+
+    /** Edit PDF document metadata (title, author, subject, keywords). */
+    public Path editMetadata(Path src, String title, String author, String subject, String keywords) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            PDDocumentInformation info = doc.getDocumentInformation();
+            if (title    != null && !title.isBlank())    info.setTitle(title);
+            if (author   != null && !author.isBlank())   info.setAuthor(author);
+            if (subject  != null && !subject.isBlank())  info.setSubject(subject);
+            if (keywords != null && !keywords.isBlank()) info.setKeywords(keywords);
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            doc.save(out.toFile());
+            return out;
+        }
+    }
+
+    /** Extract all embedded images from a PDF and zip them. */
+    public List<Path> extractImages(Path src) throws IOException {
+        List<Path> images = new java.util.ArrayList<>();
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            int idx = 0;
+            for (org.apache.pdfbox.pdmodel.PDPage page : doc.getPages()) {
+                PDResources res = page.getResources();
+                for (COSName name : res.getXObjectNames()) {
+                    try {
+                        org.apache.pdfbox.pdmodel.graphics.PDXObject xobj = res.getXObject(name);
+                        if (xobj instanceof PDImageXObject img) {
+                            Path imgOut = Paths.get(outputDir, UUID.randomUUID() + "-img" + idx++ + ".png");
+                            javax.imageio.ImageIO.write(img.getImage(), "png", imgOut.toFile());
+                            images.add(imgOut);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return images;
+    }
+
+    /** Convert a colour PDF to grayscale by rasterising and re-embedding each page. */
+    public Path grayscalePdf(Path src) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            PDFRenderer renderer = new PDFRenderer(doc);
+            try (PDDocument result = new PDDocument()) {
+                for (int i = 0; i < doc.getNumberOfPages(); i++) {
+                    java.awt.image.BufferedImage img = renderer.renderImageWithDPI(i, 150,
+                            org.apache.pdfbox.rendering.ImageType.GRAY);
+                    PDPage newPage = new PDPage(doc.getPage(i).getMediaBox());
+                    result.addPage(newPage);
+                    PDImageXObject pdImg = PDImageXObject.createFromByteArray(result,
+                            toPngBytes(img), "page-" + i);
+                    try (PDPageContentStream cs = new PDPageContentStream(result, newPage)) {
+                        cs.drawImage(pdImg, 0, 0, newPage.getMediaBox().getWidth(),
+                                newPage.getMediaBox().getHeight());
+                    }
+                }
+                Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+                result.save(out.toFile());
+                return out;
+            }
+        }
+    }
+
+    /** Flatten all annotations and form fields in a PDF. */
+    public Path flattenPdf(Path src) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            // Remove interactive form
+            if (doc.getDocumentCatalog().getAcroForm() != null)
+                doc.getDocumentCatalog().getAcroForm().flatten();
+            // Remove all annotations
+            for (org.apache.pdfbox.pdmodel.PDPage page : doc.getPages())
+                page.setAnnotations(new java.util.ArrayList<>());
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            doc.save(out.toFile());
+            return out;
+        }
+    }
+
+    private byte[] toPngBytes(java.awt.image.BufferedImage img) throws IOException {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(img, "png", baos);
+        return baos.toByteArray();
     }
 
     /**

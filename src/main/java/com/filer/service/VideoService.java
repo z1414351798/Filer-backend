@@ -178,6 +178,59 @@ public class VideoService {
         return out;
     }
 
+    /**
+     * Change video playback speed. speed > 1.0 = faster, < 1.0 = slower.
+     * Uses ffmpeg setpts + atempo filters.
+     */
+    public Path changeSpeed(Path src, float speed) throws Exception {
+        if (speed <= 0) speed = 1.0f;
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        float vSpeed = speed;
+        float aSpeed = Math.min(Math.max(speed, 0.5f), 2.0f); // atempo only works 0.5-2.0
+        // For atempo outside 0.5-2.0, chain multiple filters
+        String atempoFilter;
+        if (aSpeed >= 0.5f && aSpeed <= 2.0f) {
+            atempoFilter = "atempo=" + aSpeed;
+        } else if (aSpeed > 2.0f) {
+            atempoFilter = "atempo=2.0,atempo=" + (aSpeed / 2.0f);
+        } else {
+            atempoFilter = "atempo=0.5,atempo=" + (aSpeed / 0.5f);
+        }
+        List<String> cmd = List.of(
+            "ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-filter_complex", "[0:v]setpts=" + (1.0f/vSpeed) + "*PTS[v];[0:a]" + atempoFilter + "[a]",
+            "-map", "[v]", "-map", "[a]",
+            out.toAbsolutePath().toString()
+        );
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        if (code != 0) throw new java.io.IOException("ffmpeg speed change failed: " + log);
+        return out;
+    }
+
+    /**
+     * Split audio file at {@code splitAtSec} seconds into two MP3 files, zipped.
+     */
+    public List<Path> splitAudio(Path src, int splitAtSec) throws Exception {
+        Path part1 = Paths.get(outputDir, UUID.randomUUID() + ".mp3");
+        Path part2 = Paths.get(outputDir, UUID.randomUUID() + ".mp3");
+        // Part 1: from start to splitAtSec
+        AudioAttributes a1 = new AudioAttributes();
+        a1.setCodec("libmp3lame"); a1.setBitRate(192_000); a1.setChannels(2); a1.setSamplingRate(44100);
+        EncodingAttributes ea1 = new EncodingAttributes();
+        ea1.setOutputFormat("mp3"); ea1.setDuration((float) splitAtSec); ea1.setAudioAttributes(a1);
+        new Encoder().encode(new MultimediaObject(src.toFile()), part1.toFile(), ea1);
+        // Part 2: from splitAtSec to end
+        AudioAttributes a2 = new AudioAttributes();
+        a2.setCodec("libmp3lame"); a2.setBitRate(192_000); a2.setChannels(2); a2.setSamplingRate(44100);
+        EncodingAttributes ea2 = new EncodingAttributes();
+        ea2.setOutputFormat("mp3"); ea2.setOffset((float) splitAtSec); ea2.setAudioAttributes(a2);
+        new Encoder().encode(new MultimediaObject(src.toFile()), part2.toFile(), ea2);
+        return List.of(part1, part2);
+    }
+
     /** Concatenate multiple audio files into one MP3 using FFmpeg filter_complex. */
     public Path mergeAudio(List<Path> sources) throws Exception {
         if (sources.size() == 1) return convertAudio(sources.get(0), "mp3");

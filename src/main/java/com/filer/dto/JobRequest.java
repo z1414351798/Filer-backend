@@ -97,4 +97,21 @@ public class JobRequest {
     private String videoWatermarkText;
     // Excel merge / multi-file
     // (reuses existing fileIds field)
+    // Video speed
+    private Float videoSpeed;       // e.g. 2.0 = double speed, 0.5 = half speed
+    // Audio split
+    private Integer splitAtSec;
+    // PDF metadata
+    private String pdfTitle;
+    private String pdfAuthor;
+    private String pdfSubject;
+    private String pdfKeywords;
+    // HTML sanitize
+    private String sanitizeLevel;   // basic | relaxed | none | basic_w_images
+    // Generator tools
+    private Integer uuidCount;      // for UUID_GENERATE
+    private Integer loremParagraphs;
+    private Integer randomRows;
+    private String  randomColumns;  // comma-separated column names
+    private Integer gifDelay;       // animated GIF delay in centiseconds (100 = 1s)
 }

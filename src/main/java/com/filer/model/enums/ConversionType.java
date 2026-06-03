@@ -71,4 +71,16 @@ public enum ConversionType {
     EXCEL_MERGE,
     // Font
     FONT_PREVIEW,
+    // PDF extras
+    PDF_METADATA_EDIT, PDF_EXTRACT_IMAGES, PDF_GRAYSCALE, PDF_FLATTEN,
+    // Image extras
+    IMAGE_EXIF_STRIP, IMAGE_NOISE_REDUCE, IMAGE_ANIMATED_GIF,
+    // Video extras
+    VIDEO_SPEED_CHANGE,
+    // Audio extras
+    AUDIO_SPLIT,
+    // HTML tools
+    HTML_SANITIZE, HTML_TO_MARKDOWN,
+    // Developer/data tools
+    CSV_STATS, UUID_GENERATE, LOREM_IPSUM, RANDOM_CSV,
 }

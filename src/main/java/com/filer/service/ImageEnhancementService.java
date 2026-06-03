@@ -214,6 +214,76 @@ public class ImageEnhancementService {
     private short leShort(int v) { return Short.reverseBytes((short) v); }
     private int leInt(int v) { return Integer.reverseBytes(v); }
 
+    /** Strip all EXIF/IPTC/XMP metadata from an image by re-encoding through AWT. */
+    public Path stripExif(Path src) throws IOException {
+        BufferedImage img = ImageIO.read(src.toFile());
+        // Determine format from extension
+        String name = src.getFileName().toString();
+        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase() : "jpg";
+        if (ext.equals("jpeg")) ext = "jpg";
+        // Writing through ImageIO drops all metadata
+        Path out = Paths.get(outputDir, UUID.randomUUID() + "." + ext);
+        // Re-draw to new image to ensure clean slate
+        BufferedImage clean = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = clean.createGraphics();
+        g.drawImage(img, 0, 0, null);
+        g.dispose();
+        ImageIO.write(clean, ext.equals("jpg") ? "jpeg" : ext, out.toFile());
+        return out;
+    }
+
+    /** Simple noise reduction using a 3×3 averaging kernel. */
+    public Path reduceNoise(Path src) throws IOException {
+        BufferedImage img = ImageIO.read(src.toFile());
+        java.awt.image.Kernel kernel = new java.awt.image.Kernel(3, 3, new float[]{
+            1/9f,1/9f,1/9f, 1/9f,1/9f,1/9f, 1/9f,1/9f,1/9f
+        });
+        java.awt.image.ConvolveOp op = new java.awt.image.ConvolveOp(kernel,
+                java.awt.image.ConvolveOp.EDGE_NO_OP, null);
+        BufferedImage result = new BufferedImage(img.getWidth(), img.getHeight(), img.getType());
+        op.filter(img, result);
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        ImageIO.write(result, "png", out.toFile());
+        return out;
+    }
+
+    /**
+     * Create an animated GIF from multiple image files.
+     * delayCs = delay between frames in centiseconds (100 = 1 second).
+     */
+    public Path createAnimatedGif(List<File> files, int delayCs) throws IOException {
+        if (files.isEmpty()) throw new IOException("No images provided");
+        List<BufferedImage> frames = new java.util.ArrayList<>();
+        int w = 0, h = 0;
+        for (File f : files) {
+            BufferedImage img = ImageIO.read(f);
+            if (img != null) { frames.add(img); w = Math.max(w, img.getWidth()); h = Math.max(h, img.getHeight()); }
+        }
+        if (frames.isEmpty()) throw new IOException("Could not read any images");
+
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".gif");
+        try (javax.imageio.stream.ImageOutputStream ios =
+                javax.imageio.ImageIO.createImageOutputStream(out.toFile())) {
+            javax.imageio.ImageWriter writer = javax.imageio.ImageIO.getImageWritersByFormatName("gif").next();
+            writer.setOutput(ios);
+            writer.prepareWriteSequence(null);
+            for (BufferedImage frame : frames) {
+                // Scale to common size
+                BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = scaled.createGraphics();
+                g.setColor(Color.WHITE); g.fillRect(0,0,w,h);
+                g.drawImage(frame.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
+                g.dispose();
+
+                javax.imageio.IIOImage iioImage = new javax.imageio.IIOImage(scaled, null, null);
+                javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+                writer.writeToSequence(iioImage, param);
+            }
+            writer.endWriteSequence();
+        }
+        return out;
+    }
+
     /** Generate a pixel-diff image highlighting differences between two images. */
     public Path compareImages(Path src1, Path src2) throws IOException {
         BufferedImage img1 = ImageIO.read(src1.toFile());

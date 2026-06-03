@@ -7,6 +7,7 @@ import com.filer.model.FileRecord;
 import com.filer.model.enums.ConversionType;
 import com.filer.service.*;
 import com.filer.service.FontPreviewService;
+import com.filer.service.HtmlService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -43,6 +44,7 @@ public class FileConversionConsumer {
     private final WebSocketProgressService wsProgressService;
     private final EmailService emailService;
     private final FontPreviewService fontPreviewService;
+    private final HtmlService htmlService;
 
     @KafkaListener(topics = "file-conversion", groupId = "filer-group",
             containerFactory = "kafkaListenerContainerFactory")
@@ -260,6 +262,38 @@ public class FileConversionConsumer {
                                           intOrDef(p,"cropBottom",36), intOrDef(p,"cropLeft",36));
             case PDF_REORDER_PAGES   -> pdfEnhancementService.reorderPages(src, str(p,"pageOrder"));
             case FONT_PREVIEW        -> fontPreviewService.generateFontPreview(src);
+            // PDF extras
+            case PDF_METADATA_EDIT  -> pdfEnhancementService.editMetadata(src,
+                                          str(p,"pdfTitle"), str(p,"pdfAuthor"),
+                                          str(p,"pdfSubject"), str(p,"pdfKeywords"));
+            case PDF_EXTRACT_IMAGES -> {
+                List<java.nio.file.Path> imgs = pdfEnhancementService.extractImages(src);
+                yield archiveService.createZip(imgs, null);
+            }
+            case PDF_GRAYSCALE -> pdfEnhancementService.grayscalePdf(src);
+            case PDF_FLATTEN   -> pdfEnhancementService.flattenPdf(src);
+            // Image extras
+            case IMAGE_EXIF_STRIP    -> imageEnhancementService.stripExif(src);
+            case IMAGE_NOISE_REDUCE  -> imageEnhancementService.reduceNoise(src);
+            case IMAGE_ANIMATED_GIF  -> {
+                List<java.io.File> files = listOf(p,"fileIds").stream()
+                        .map(id -> fileStorageService.getFilePath(id).toFile()).toList();
+                yield imageEnhancementService.createAnimatedGif(files, intOrDef(p,"gifDelay",100));
+            }
+            // Video/audio extras
+            case VIDEO_SPEED_CHANGE -> videoService.changeSpeed(src, floatOrDef(p,"videoSpeed",1.5f));
+            case AUDIO_SPLIT -> {
+                List<java.nio.file.Path> parts = videoService.splitAudio(src, intOrDef(p,"splitAtSec",30));
+                yield archiveService.createZip(parts, null);
+            }
+            // HTML tools
+            case HTML_SANITIZE    -> htmlService.sanitize(src, str(p,"sanitizeLevel"));
+            case HTML_TO_MARKDOWN -> htmlService.htmlToMarkdown(src);
+            // Dev/data tools
+            case CSV_STATS     -> dataFormatService.csvStats(src);
+            case UUID_GENERATE -> dataFormatService.generateUuids(intOrDef(p,"uuidCount",10));
+            case LOREM_IPSUM   -> dataFormatService.generateLoremIpsum(intOrDef(p,"loremParagraphs",5));
+            case RANDOM_CSV    -> dataFormatService.generateRandomCsv(str(p,"randomColumns"), intOrDef(p,"randomRows",100));
             // Office → PDF
             case DOCX_TO_PDF -> officeService.officeToPdf(src);
             case XLSX_TO_PDF -> officeService.officeToPdf(src);
@@ -293,6 +327,7 @@ public class FileConversionConsumer {
             case "png"        -> "image/png";
             case "jpg","jpeg" -> "image/jpeg";
             case "gif"        -> "image/gif";
+            case "md"         -> "text/markdown";
             case "mp3"        -> "audio/mpeg";
             case "zip"        -> "application/zip";
             case "json"       -> "application/json";
