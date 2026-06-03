@@ -50,6 +50,11 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
 
+  task:
+    scheduling:
+      pool:
+        size: 4
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.filer.model
@@ -59,11 +64,13 @@ mybatis:
 filer:
   upload-dir: /tmp/filer/uploads
   output-dir: /tmp/filer/outputs
+  ffmpeg-path: ${FFMPEG_PATH:/usr/bin/ffmpeg}
+  ffprobe-path: ${FFPROBE_PATH:/usr/bin/ffprobe}
   job-ttl-seconds: 86400
   max-file-size-mb: 500
   jwt:
     secret: ${JWT_SECRET:ZmlsZXItc2VjcmV0LWtleS1hdC1sZWFzdC0yNTYtYml0cy1sb25n}
-    expiration-ms: 86400000   # 24 hours
+    expiration-ms: 86400000
   rate-limit:
     anonymous-per-hour: 100
     authenticated-per-hour: 1000
