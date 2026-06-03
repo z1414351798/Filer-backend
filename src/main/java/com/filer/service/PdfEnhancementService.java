@@ -8,6 +8,7 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
+import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -55,10 +56,10 @@ public class PdfEnhancementService {
                     cs.beginText();
                     cs.setFont(font, 48);
                     cs.setNonStrokingColor(0.7f, 0.7f, 0.7f);
-                    cs.setTextMatrix(
+                    cs.setTextMatrix(new Matrix(
                             (float) Math.cos(Math.toRadians(45)), (float) Math.sin(Math.toRadians(45)),
                             -(float) Math.sin(Math.toRadians(45)), (float) Math.cos(Math.toRadians(45)),
-                            cx - 80, cy);
+                            cx - 80, cy));
                     cs.showText(text == null || text.isEmpty() ? "WATERMARK" : text);
                     cs.endText();
                 }

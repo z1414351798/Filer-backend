@@ -66,15 +66,14 @@ public class FileInfoController {
 
     @GetMapping("/supported")
     public ResponseEntity<ApiResponse<Map<String, Object>>> supported() {
-        var map = Map.of(
-            "imageFormats",   new String[]{"jpg","png","webp","bmp","gif"},
-            "imageOps",       new String[]{"resize","compress","rotate","flip","grayscale","watermark","crop","sepia","invert","blur","sharpen","brightness"},
-            "pdfOps",         new String[]{"merge","split","toImages","toPdf","extractText","encrypt","decrypt"},
-            "ocrLanguages",   new String[]{"eng","chi_sim","chi_tra","jpn","kor","fra","deu","spa"},
-            "dataFormats",    new String[]{"csv_json","json_csv","xml_json","json_xml","markdown_html","markdown_pdf","text_pdf","html_pdf"},
-            "qrBarcode",      new String[]{"qr_generate","qr_scan","barcode_generate","barcode_scan"},
-            "fileUtils",      new String[]{"checksum","image_metadata","pdf_info"}
-        );
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("imageFormats",  new String[]{"jpg","png","webp","bmp","gif"});
+        map.put("imageOps",      new String[]{"resize","compress","rotate","flip","grayscale","watermark","crop","sepia","invert","blur","sharpen","brightness"});
+        map.put("pdfOps",        new String[]{"merge","split","toImages","toPdf","extractText","encrypt","decrypt"});
+        map.put("ocrLanguages",  new String[]{"eng","chi_sim","chi_tra","jpn","kor","fra","deu","spa"});
+        map.put("dataFormats",   new String[]{"csv_json","json_csv","xml_json","json_xml","markdown_html","markdown_pdf","text_pdf","html_pdf"});
+        map.put("qrBarcode",     new String[]{"qr_generate","qr_scan","barcode_generate","barcode_scan"});
+        map.put("fileUtils",     new String[]{"checksum","image_metadata","pdf_info"});
         return ResponseEntity.ok(ApiResponse.ok(map));
     }
 }

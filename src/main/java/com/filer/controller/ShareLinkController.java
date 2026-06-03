@@ -28,11 +28,15 @@ public class ShareLinkController {
 
     @GetMapping("/{token}")
     public ResponseEntity<Resource> downloadByToken(@PathVariable String token) {
-        FileRecord file = shareLinkService.resolveShareLink(token);
-        Resource resource = fileStorageService.loadAsResource(file.getFileId());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + file.getOriginalName() + "\"")
-                .body(resource);
+        try {
+            FileRecord file = shareLinkService.resolveShareLink(token);
+            Resource resource = fileStorageService.loadAsResource(file.getFileId());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + file.getOriginalName() + "\"")
+                    .body(resource);
+        } catch (java.net.MalformedURLException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

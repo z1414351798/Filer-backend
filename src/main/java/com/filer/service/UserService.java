@@ -20,31 +20,29 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userMapper.findByUsername(username);
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found: " + username);
-        }
+        User user = userMapper.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
-                user.getPassword(),
+                user.getPasswordHash(),
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
         );
     }
 
     public User findByUsername(String username) {
-        return userMapper.findByUsername(username);
+        return userMapper.findByUsername(username).orElse(null);
     }
 
     public User findByEmail(String email) {
-        return userMapper.findByEmail(email);
+        return userMapper.findByEmail(email).orElse(null);
     }
 
     public User findById(Long id) {
-        return userMapper.findById(id);
+        return userMapper.findById(id).orElse(null);
     }
 
     public void register(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         if (user.getRole() == null) {
             user.setRole("USER");
         }
