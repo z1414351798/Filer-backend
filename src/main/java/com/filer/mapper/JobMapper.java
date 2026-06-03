@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface JobMapper {
@@ -21,4 +22,8 @@ public interface JobMapper {
                        @Param("outputFileId") String outputFileId);
     void markFailed(@Param("jobId") String jobId,
                     @Param("errorMessage") String errorMessage);
+    Long countByUserId(@Param("userId") Long userId);
+    Long countByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+    List<Map<String,Object>> countByTypeForUser(@Param("userId") Long userId, @Param("days") int days);
+    List<Map<String,Object>> countByDateForUser(@Param("userId") Long userId, @Param("days") int days);
 }

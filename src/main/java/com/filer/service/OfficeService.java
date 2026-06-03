@@ -257,6 +257,37 @@ public class OfficeService {
     }
 
     /** Convert a JSON array-of-objects to an XLSX workbook. */
+    /** Convert Markdown to DOCX by rendering as HTML then converting via LibreOffice. */
+    public Path markdownToDocx(Path src) throws IOException, InterruptedException {
+        // Step 1: Markdown → HTML using CommonMark
+        String md = java.nio.file.Files.readString(src);
+        org.commonmark.parser.Parser parser = org.commonmark.parser.Parser.builder().build();
+        org.commonmark.renderer.html.HtmlRenderer renderer = org.commonmark.renderer.html.HtmlRenderer.builder().build();
+        String body = renderer.render(parser.parse(md));
+        String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;line-height:1.6}</style></head><body>" + body + "</body></html>";
+        // Step 2: Write HTML to temp file
+        Path tmpHtml = Paths.get(outputDir, UUID.randomUUID() + ".html");
+        java.nio.file.Files.writeString(tmpHtml, html);
+        // Step 3: LibreOffice HTML → DOCX
+        Path outDir = Paths.get(outputDir);
+        ProcessBuilder pb = new ProcessBuilder(
+            libreofficePath, "--headless", "--norestore",
+            "--convert-to", "docx", "--outdir", outDir.toString(),
+            tmpHtml.toAbsolutePath().toString())
+            .redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        java.nio.file.Files.deleteIfExists(tmpHtml);
+        if (code != 0) throw new IOException("LibreOffice html→docx failed: " + log);
+        String stem = tmpHtml.getFileName().toString().replaceFirst("\\.html$","");
+        Path lo = Paths.get(outputDir, stem + ".docx");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".docx");
+        if (lo.toFile().exists()) java.nio.file.Files.move(lo, out);
+        else throw new IOException("LibreOffice did not produce .docx output");
+        return out;
+    }
+
     public Path jsonToExcel(Path src) throws IOException {
         JsonNode root = objectMapper.readTree(src.toFile());
         Path out = Paths.get(outputDir, UUID.randomUUID() + ".xlsx");

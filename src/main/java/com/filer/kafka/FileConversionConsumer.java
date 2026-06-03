@@ -328,6 +328,10 @@ public class FileConversionConsumer {
             case XML_TO_YAML        -> dataFormatService.xmlToYaml(src);
             case YAML_TO_XML        -> dataFormatService.yamlToXml(src);
             case CSV_TO_XML         -> dataFormatService.csvToXml(src);
+            // Wave 7 new cases
+            case BARCODE_READ      -> qrCodeService.readBarcode(src);
+            case MARKDOWN_TO_DOCX  -> officeService.markdownToDocx(src);
+            case PDF_THUMBNAIL     -> pdfEnhancementService.pdfThumbnail(src, intOrDef(p,"pageIndex",0));
             // File utility types are handled via /api/info/* endpoints, not Kafka jobs
             case FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO ->
                 throw new UnsupportedOperationException(type + " is handled by /api/info endpoints");

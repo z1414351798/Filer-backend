@@ -66,4 +66,24 @@ public class QrCodeService {
         Files.writeString(out, text);
         return out;
     }
+
+    /** Read any barcode/QR code from an image and return the decoded text as a .txt file. */
+    public Path readBarcode(Path src) throws IOException {
+        try {
+            java.awt.image.BufferedImage image = ImageIO.read(src.toFile());
+            BinaryBitmap bitmap = new BinaryBitmap(
+                new HybridBinarizer(new BufferedImageLuminanceSource(image)));
+            java.util.Map<DecodeHintType, Object> hints = new java.util.HashMap<>();
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+            Result result = new MultiFormatReader().decode(bitmap, hints);
+            String text = "Format: " + result.getBarcodeFormat() + "\nText: " + result.getText() + "\n";
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+            Files.writeString(out, text);
+            return out;
+        } catch (NotFoundException e) {
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+            Files.writeString(out, "No barcode found in image.\n");
+            return out;
+        }
+    }
 }

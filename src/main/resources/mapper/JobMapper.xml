@@ -13,6 +13,7 @@
         <result property="options" column="options"/>
         <result property="errorMessage" column="error_message"/>
         <result property="progress" column="progress"/>
+        <result property="userId" column="user_id"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
         <result property="completedAt" column="completed_at"/>
@@ -60,4 +61,31 @@
             completed_at = NOW()
         WHERE job_id = #{jobId}
     </update>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM conversion_job WHERE user_id = #{userId}
+    </select>
+
+    <select id="countByUserIdAndStatus" resultType="long">
+        SELECT COUNT(*) FROM conversion_job WHERE user_id = #{userId} AND status = #{status}
+    </select>
+
+    <select id="countByTypeForUser" resultType="map">
+        SELECT conversion_type AS type, COUNT(*) AS count
+        FROM conversion_job
+        WHERE user_id = #{userId}
+          AND created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY conversion_type
+        ORDER BY count DESC
+        LIMIT 20
+    </select>
+
+    <select id="countByDateForUser" resultType="map">
+        SELECT DATE(created_at) AS date, COUNT(*) AS count
+        FROM conversion_job
+        WHERE user_id = #{userId}
+          AND created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+    </select>
 </mapper>

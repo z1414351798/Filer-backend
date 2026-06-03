@@ -37,10 +37,13 @@ CREATE TABLE IF NOT EXISTS conversion_job (
     error_message   TEXT,
     notify_email    VARCHAR(255),
     webhook_url     VARCHAR(1024),
+    user_id         BIGINT,
     created_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at    DATETIME,
+    updated_at      DATETIME,
     INDEX idx_job_id (job_id),
-    INDEX idx_status (status)
+    INDEX idx_status (status),
+    INDEX idx_user_id (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS share_link (

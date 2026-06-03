@@ -16,6 +16,7 @@ public class ConversionJob {
     private String errorMessage;
     private String notifyEmail;
     private String webhookUrl;
+    private Long userId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime completedAt;

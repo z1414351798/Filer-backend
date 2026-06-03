@@ -292,4 +292,17 @@ public class PdfEnhancementService {
             }
         }
     }
+
+    /** Render the first page of a PDF as a JPEG thumbnail at 150 DPI. */
+    public Path pdfThumbnail(Path src, int pageIndex) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            int idx = Math.min(Math.max(pageIndex, 0), doc.getNumberOfPages()-1);
+            PDFRenderer renderer = new PDFRenderer(doc);
+            java.awt.image.BufferedImage img = renderer.renderImageWithDPI(idx, 150,
+                    org.apache.pdfbox.rendering.ImageType.RGB);
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".jpg");
+            javax.imageio.ImageIO.write(img, "jpeg", out.toFile());
+            return out;
+        }
+    }
 }

@@ -95,4 +95,8 @@ public enum ConversionType {
     HTML_MINIFY, JSON_MINIFY,
     // Data format extras
     XML_TO_YAML, YAML_TO_XML, CSV_TO_XML,
+    // New wave 7
+    BARCODE_READ,
+    MARKDOWN_TO_DOCX,
+    PDF_THUMBNAIL,
 }
