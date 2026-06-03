@@ -40,5 +40,19 @@ public enum ConversionType {
     // Data extras
     JSON_TO_EXCEL,
     // File utilities
-    FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO
+    FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO,
+    // Video extras
+    VIDEO_TRIM, VIDEO_COMPRESS, VIDEO_TO_MP4,
+    // Audio extras
+    AUDIO_TRIM, AUDIO_MERGE,
+    // File encryption
+    FILE_AES_ENCRYPT, FILE_AES_DECRYPT,
+    // Developer tools (file-based)
+    HASH_FILE, URL_ENCODE, URL_DECODE, JWT_DECODE,
+    // Data extras
+    EXCEL_TO_JSON, CSV_MERGE,
+    // PDF extras
+    PDF_TO_HTML, PDF_LINEARIZE,
+    // Image extras
+    IMAGE_ASCII_ART, IMAGE_MEME, IMAGE_COMPARE,
 }

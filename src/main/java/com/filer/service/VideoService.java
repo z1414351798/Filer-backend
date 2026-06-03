@@ -8,8 +8,10 @@ import ws.schild.jave.encode.AudioAttributes;
 import ws.schild.jave.encode.EncodingAttributes;
 import ws.schild.jave.encode.VideoAttributes;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -81,6 +83,72 @@ public class VideoService {
         attrs.setOutputFormat(fmt.equals("m4a") ? "ipod" : fmt);
         attrs.setAudioAttributes(audio);
         new Encoder().encode(new MultimediaObject(src.toFile()), out.toFile(), attrs);
+        return out;
+    }
+
+    /** Trim video: extract [startSec, startSec+durationSec]. */
+    public Path trimVideo(Path src, int startSec, int durationSec) throws Exception {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        VideoAttributes video = new VideoAttributes();
+        video.setCodec("libx264");
+        video.setBitRate(1_500_000);
+        AudioAttributes audio = new AudioAttributes();
+        audio.setCodec("aac");
+        audio.setBitRate(128_000);
+        audio.setChannels(2);
+        audio.setSamplingRate(44100);
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat("mp4");
+        attrs.setOffset((float) startSec);
+        attrs.setDuration((float) Math.max(1, durationSec));
+        attrs.setVideoAttributes(video);
+        attrs.setAudioAttributes(audio);
+        new Encoder().encode(new MultimediaObject(src.toFile()), out.toFile(), attrs);
+        return out;
+    }
+
+    /** Re-encode video at lower bitrate. quality 0-100; lower = smaller file. */
+    public Path compressVideo(Path src, int quality) throws Exception {
+        // quality maps 0-100 → bitrate 200k-4000k
+        int bitrate = 200_000 + (int)(quality / 100.0 * 3_800_000);
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        VideoAttributes video = new VideoAttributes();
+        video.setCodec("libx264");
+        video.setBitRate(bitrate);
+        AudioAttributes audio = new AudioAttributes();
+        audio.setCodec("aac");
+        audio.setBitRate(128_000);
+        audio.setChannels(2);
+        audio.setSamplingRate(44100);
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat("mp4");
+        attrs.setVideoAttributes(video);
+        attrs.setAudioAttributes(audio);
+        new Encoder().encode(new MultimediaObject(src.toFile()), out.toFile(), attrs);
+        return out;
+    }
+
+    /** Convert any video to MP4 (H.264 + AAC). */
+    public Path convertToMp4(Path src) throws Exception {
+        return compressVideo(src, 70);
+    }
+
+    /** Concatenate multiple audio files into one MP3 using FFmpeg filter_complex. */
+    public Path mergeAudio(List<Path> sources) throws Exception {
+        if (sources.size() == 1) return convertAudio(sources.get(0), "mp3");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp3");
+        // Build: ffmpeg -i f1 -i f2 ... -filter_complex "[0:a][1:a]concat=n=N:v=0:a=1[out]" -map "[out]" out.mp3
+        List<String> cmd = new java.util.ArrayList<>(List.of("ffmpeg", "-y"));
+        for (Path s : sources) { cmd.add("-i"); cmd.add(s.toAbsolutePath().toString()); }
+        StringBuilder fc = new StringBuilder();
+        for (int i = 0; i < sources.size(); i++) fc.append("[").append(i).append(":a]");
+        fc.append("concat=n=").append(sources.size()).append(":v=0:a=1[out]");
+        cmd.addAll(List.of("-filter_complex", fc.toString(), "-map", "[out]", out.toAbsolutePath().toString()));
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        if (code != 0) throw new IOException("ffmpeg merge failed (code " + code + "): " + log);
         return out;
     }
 }

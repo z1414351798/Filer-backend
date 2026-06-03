@@ -69,6 +69,15 @@ public class JobRequest {
     private Integer fromPage;
     private Integer toPage;
 
+    // Video trim
+    private Integer startSec;
+    private Integer durationSec;
+    // Meme text
+    private String topText;
+    private String bottomText;
+    // Hash
+    private String hashAlgorithm;  // SHA-256, MD5, SHA-512
+
     // Notifications
     private String notifyEmail;
     private String webhookUrl;

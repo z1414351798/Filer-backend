@@ -2,6 +2,8 @@ package com.filer.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.patch.Patch;
@@ -9,12 +11,18 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.zip.GZIPInputStream;
@@ -141,5 +149,106 @@ public class DataFormatService {
                 Files.copy(f, zos); zos.closeEntry();
             }
         }
+    }
+
+    /** Compute SHA-256 (default), MD5, or SHA-512 hash of a file. */
+    public Path hashFile(Path src, String algorithm) throws Exception {
+        String algo = algorithm == null || algorithm.isBlank() ? "SHA-256" : algorithm.toUpperCase()
+                .replace("SHA256","SHA-256").replace("SHA512","SHA-512");
+        MessageDigest md = MessageDigest.getInstance(algo);
+        byte[] data = Files.readAllBytes(src);
+        String hex = HexFormat.of().formatHex(md.digest(data));
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, algo + "  " + src.getFileName() + "\n" + hex + "\n");
+        return out;
+    }
+
+    /** URL-encode every line of a text file. */
+    public Path urlEncode(Path src) throws IOException {
+        String content = Files.readString(src, StandardCharsets.UTF_8);
+        String encoded = URLEncoder.encode(content, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, encoded);
+        return out;
+    }
+
+    /** URL-decode a text file. */
+    public Path urlDecode(Path src) throws IOException {
+        String content = Files.readString(src, StandardCharsets.UTF_8);
+        String decoded = URLDecoder.decode(content, StandardCharsets.UTF_8);
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, decoded);
+        return out;
+    }
+
+    /**
+     * Decode a JWT token file (no signature verification — useful for inspection).
+     * Input: text file containing a JWT string.
+     */
+    public Path jwtDecode(Path src) throws Exception {
+        String token = Files.readString(src).strip();
+        String[] parts = token.split("\\.");
+        if (parts.length < 2) throw new IllegalArgumentException("Not a valid JWT (need at least header.payload)");
+        java.util.Base64.Decoder dec = java.util.Base64.getUrlDecoder();
+        JsonNode header  = jsonMapper.readTree(dec.decode(parts[0]));
+        JsonNode payload = jsonMapper.readTree(dec.decode(parts[1]));
+        ObjectNode result = jsonMapper.createObjectNode();
+        result.set("header",  header);
+        result.set("payload", payload);
+        result.put("signature", parts.length > 2 ? parts[2] : "");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(result));
+        return out;
+    }
+
+    /** Convert first sheet of an XLSX/XLS file to a JSON array of objects. */
+    public Path excelToJson(Path src) throws IOException {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        try (Workbook wb = WorkbookFactory.create(src.toFile())) {
+            Sheet sheet = wb.getSheetAt(0);
+            DataFormatter fmt = new DataFormatter();
+            ArrayNode array = jsonMapper.createArrayNode();
+            // First row = headers
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) { Files.writeString(out, "[]"); return out; }
+            List<String> headers = new java.util.ArrayList<>();
+            for (Cell c : headerRow) headers.add(fmt.formatCellValue(c));
+
+            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+                ObjectNode obj = jsonMapper.createObjectNode();
+                for (int c = 0; c < headers.size(); c++) {
+                    Cell cell = row.getCell(c);
+                    obj.put(headers.get(c), cell == null ? "" : fmt.formatCellValue(cell));
+                }
+                array.add(obj);
+            }
+            Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(array));
+        }
+        return out;
+    }
+
+    /** Merge multiple CSV files (must all have same headers). */
+    public Path mergeCsv(List<Path> sources) throws IOException {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".csv");
+        try (java.io.BufferedWriter writer = Files.newBufferedWriter(out)) {
+            boolean headerWritten = false;
+            for (Path src : sources) {
+                java.io.BufferedReader reader = Files.newBufferedReader(src);
+                String header = reader.readLine();
+                if (!headerWritten && header != null) {
+                    writer.write(header); writer.newLine();
+                    headerWritten = true;
+                }
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    writer.write(line); writer.newLine();
+                }
+                reader.close();
+            }
+        }
+        return out;
     }
 }

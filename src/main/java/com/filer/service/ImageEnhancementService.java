@@ -9,6 +9,7 @@ import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -104,5 +105,98 @@ public class ImageEnhancementService {
     private String ext(Path p) {
         String n = p.getFileName().toString();
         int d = n.lastIndexOf('.'); return d < 0 ? "png" : n.substring(d + 1).toLowerCase();
+    }
+
+    /** Convert image to ASCII art text file. */
+    public Path imageToAsciiArt(Path src) throws IOException {
+        BufferedImage img = ImageIO.read(src.toFile());
+        int width  = Math.min(img.getWidth(),  160);
+        int height = Math.min(img.getHeight(), 80);
+        // Scale down
+        java.awt.image.BufferedImage scaled = new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        scaled.getGraphics().drawImage(img.getScaledInstance(width, height, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
+        char[] chars = {'@','#','S','%','?','*','+',';',':',',',' '};
+        StringBuilder sb = new StringBuilder();
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = scaled.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+                int brightness = (r + g + b) / 3;
+                sb.append(chars[brightness * (chars.length - 1) / 255]);
+            }
+            sb.append('\n');
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Add meme-style top and bottom text to an image. */
+    public Path addMemeText(Path src, String topText, String bottomText) throws IOException {
+        BufferedImage img = ImageIO.read(src.toFile());
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        int fontSize = Math.max(24, img.getWidth() / 15);
+        Font font = new Font("Arial Black", Font.BOLD, fontSize);
+        g.setFont(font);
+        FontMetrics fm = g.getFontMetrics();
+        // draw with white fill + black stroke
+        if (topText != null && !topText.isBlank()) {
+            int x = (img.getWidth() - fm.stringWidth(topText)) / 2;
+            drawOutlinedText(g, topText.toUpperCase(), x, fontSize + 10);
+        }
+        if (bottomText != null && !bottomText.isBlank()) {
+            int x = (img.getWidth() - fm.stringWidth(bottomText)) / 2;
+            drawOutlinedText(g, bottomText.toUpperCase(), x, img.getHeight() - 15);
+        }
+        g.dispose();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        ImageIO.write(img, "png", out.toFile());
+        return out;
+    }
+
+    private void drawOutlinedText(Graphics2D g, String text, int x, int y) {
+        g.setColor(Color.BLACK);
+        for (int dx = -2; dx <= 2; dx++)
+            for (int dy = -2; dy <= 2; dy++)
+                if (dx != 0 || dy != 0) g.drawString(text, x + dx, y + dy);
+        g.setColor(Color.WHITE);
+        g.drawString(text, x, y);
+    }
+
+    /** Generate a pixel-diff image highlighting differences between two images. */
+    public Path compareImages(Path src1, Path src2) throws IOException {
+        BufferedImage img1 = ImageIO.read(src1.toFile());
+        BufferedImage img2 = ImageIO.read(src2.toFile());
+        int w = Math.min(img1.getWidth(),  img2.getWidth());
+        int h = Math.min(img1.getHeight(), img2.getHeight());
+        BufferedImage diff = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int diffCount = 0;
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                int rgb1 = img1.getRGB(x, y);
+                int rgb2 = img2.getRGB(x, y);
+                if (rgb1 != rgb2) {
+                    diff.setRGB(x, y, 0xFF0000); // red for diff pixels
+                    diffCount++;
+                } else {
+                    // dim the unchanged area to make diffs stand out
+                    int r = ((rgb1 >> 16) & 0xFF) / 3;
+                    int gv = ((rgb1 >> 8) & 0xFF) / 3;
+                    int bv = (rgb1 & 0xFF) / 3;
+                    diff.setRGB(x, y, (r << 16) | (gv << 8) | bv);
+                }
+            }
+        }
+        // Write summary text onto image
+        Graphics2D g = diff.createGraphics();
+        g.setFont(new Font("SansSerif", Font.BOLD, 14));
+        g.setColor(Color.YELLOW);
+        g.drawString(String.format("Diff pixels: %d / %d (%.2f%%)", diffCount, w * h,
+                diffCount * 100.0 / (w * h)), 10, 20);
+        g.dispose();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        ImageIO.write(diff, "png", out.toFile());
+        return out;
     }
 }

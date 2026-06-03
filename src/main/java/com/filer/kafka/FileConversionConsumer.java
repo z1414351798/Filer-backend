@@ -38,6 +38,7 @@ public class FileConversionConsumer {
     private final DataFormatService dataFormatService;
     private final SvgService svgService;
     private final VideoService videoService;
+    private final FileEncryptionService fileEncryptionService;
     private final WebSocketProgressService wsProgressService;
     private final EmailService emailService;
 
@@ -200,6 +201,40 @@ public class FileConversionConsumer {
                                           intOrDef(p,"videoDuration",5), intOrDef(p,"videoFps",10));
             case VIDEO_AUDIO_EXTRACT -> videoService.extractAudio(src);
             case AUDIO_CONVERT       -> videoService.convertAudio(src, str(p,"targetFormat"));
+            case VIDEO_TRIM          -> videoService.trimVideo(src, intOrDef(p,"startSec",0), intOrDef(p,"durationSec",30));
+            case VIDEO_COMPRESS      -> videoService.compressVideo(src, intOrDef(p,"quality",50));
+            case VIDEO_TO_MP4        -> videoService.convertToMp4(src);
+            case AUDIO_TRIM -> {
+                // reuse trimVideo but audio-only: encode to mp3 with offset+duration
+                Path trimmed = videoService.trimVideo(src, intOrDef(p,"startSec",0), intOrDef(p,"durationSec",30));
+                // re-encode to mp3 only
+                yield videoService.convertAudio(trimmed, "mp3");
+            }
+            case AUDIO_MERGE -> {
+                List<Path> srcs = listOf(p,"fileIds").stream()
+                        .map(id -> fileStorageService.getFilePath(id)).toList();
+                yield videoService.mergeAudio(srcs);
+            }
+            case FILE_AES_ENCRYPT -> fileEncryptionService.encrypt(src, str(p,"password"));
+            case FILE_AES_DECRYPT -> fileEncryptionService.decrypt(src, str(p,"password"));
+            case HASH_FILE         -> dataFormatService.hashFile(src, str(p,"hashAlgorithm"));
+            case URL_ENCODE        -> dataFormatService.urlEncode(src);
+            case URL_DECODE        -> dataFormatService.urlDecode(src);
+            case JWT_DECODE        -> dataFormatService.jwtDecode(src);
+            case EXCEL_TO_JSON     -> dataFormatService.excelToJson(src);
+            case CSV_MERGE -> {
+                List<Path> srcs = listOf(p,"fileIds").stream()
+                        .map(id -> fileStorageService.getFilePath(id)).toList();
+                yield dataFormatService.mergeCsv(srcs);
+            }
+            case PDF_TO_HTML     -> pdfEnhancementService.pdfToHtml(src);
+            case PDF_LINEARIZE   -> pdfEnhancementService.linearizePdf(src);
+            case IMAGE_ASCII_ART -> imageEnhancementService.imageToAsciiArt(src);
+            case IMAGE_MEME      -> imageEnhancementService.addMemeText(src, str(p,"topText"), str(p,"bottomText"));
+            case IMAGE_COMPARE   -> {
+                Path src2 = fileStorageService.getFilePath(str(p,"diffFileId"));
+                yield imageEnhancementService.compareImages(src, src2);
+            }
             // Office → PDF
             case DOCX_TO_PDF -> officeService.officeToPdf(src);
             case XLSX_TO_PDF -> officeService.officeToPdf(src);

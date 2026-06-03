@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
@@ -124,5 +125,42 @@ public class PdfEnhancementService {
             doc.save(out.toFile());
             return out;
         }
+    }
+
+    /** Extract text from PDF and wrap in basic HTML. */
+    public Path pdfToHtml(Path src) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            StringBuilder html = new StringBuilder();
+            html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>")
+                .append("body{font-family:sans-serif;max-width:860px;margin:40px auto;white-space:pre-wrap;line-height:1.6}")
+                .append("</style></head><body>\n");
+            for (int i = 1; i <= doc.getNumberOfPages(); i++) {
+                stripper.setStartPage(i);
+                stripper.setEndPage(i);
+                html.append("<section data-page=\"").append(i).append("\">\n");
+                html.append(escapeHtml(stripper.getText(doc)));
+                html.append("\n</section>\n<hr>\n");
+            }
+            html.append("</body></html>");
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".html");
+            Files.writeString(out, html.toString());
+            return out;
+        }
+    }
+
+    /** Linearize (web-optimize) a PDF by saving with cross-reference streams. */
+    public Path linearizePdf(Path src) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            doc.getDocument().setIsXRefStream(true);
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            doc.save(out.toFile());
+            return out;
+        }
+    }
+
+    private String escapeHtml(String s) {
+        return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
     }
 }
