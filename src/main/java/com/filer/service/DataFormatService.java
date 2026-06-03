@@ -5,164 +5,141 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.patch.Patch;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
-@RequiredArgsConstructor
 public class DataFormatService {
 
-    @Value("${filer.upload-dir:uploads}")
-    private String uploadDir;
-
-    @Value("${filer.output-dir:outputs}")
+    @Value("${filer.output-dir}")
     private String outputDir;
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
     private final YAMLMapper yamlMapper = new YAMLMapper();
 
-    public String jsonToYaml(String fileId) throws IOException {
-        String json = Files.readString(Path.of(uploadDir, fileId));
-        JsonNode node = jsonMapper.readTree(json);
-        String yaml = yamlMapper.writeValueAsString(node);
-        String outId = UUID.randomUUID() + ".yaml";
-        Files.writeString(Path.of(outputDir, outId), yaml);
-        return outId;
+    public Path jsonToYaml(Path src) throws IOException {
+        JsonNode node = jsonMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".yaml");
+        Files.writeString(out, yamlMapper.writeValueAsString(node));
+        return out;
     }
 
-    public String yamlToJson(String fileId) throws IOException {
-        String yaml = Files.readString(Path.of(uploadDir, fileId));
-        JsonNode node = yamlMapper.readTree(yaml);
-        String json = jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
-        String outId = UUID.randomUUID() + ".json";
-        Files.writeString(Path.of(outputDir, outId), json);
-        return outId;
+    public Path yamlToJson(Path src) throws IOException {
+        JsonNode node = yamlMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(node));
+        return out;
     }
 
-    public String formatJson(String fileId) throws IOException {
-        String raw = Files.readString(Path.of(uploadDir, fileId));
-        JsonNode node = jsonMapper.readTree(raw);
-        String pretty = jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
-        String outId = UUID.randomUUID() + ".json";
-        Files.writeString(Path.of(outputDir, outId), pretty);
-        return outId;
+    public Path formatJson(Path src) throws IOException {
+        JsonNode node = jsonMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(node));
+        return out;
     }
 
-    public String formatXml(String fileId) throws Exception {
-        String raw = Files.readString(Path.of(uploadDir, fileId));
-        javax.xml.transform.Transformer transformer =
+    public Path formatXml(Path src) throws Exception {
+        String raw = Files.readString(src);
+        javax.xml.transform.Transformer tr =
                 javax.xml.transform.TransformerFactory.newInstance().newTransformer();
-        transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
-        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-        javax.xml.transform.Source xmlInput =
-                new javax.xml.transform.stream.StreamSource(new StringReader(raw));
+        tr.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+        tr.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
         StringWriter sw = new StringWriter();
-        transformer.transform(xmlInput, new javax.xml.transform.stream.StreamResult(sw));
-        String outId = UUID.randomUUID() + ".xml";
-        Files.writeString(Path.of(outputDir, outId), sw.toString());
-        return outId;
+        tr.transform(new javax.xml.transform.stream.StreamSource(new StringReader(raw)),
+                new javax.xml.transform.stream.StreamResult(sw));
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".xml");
+        Files.writeString(out, sw.toString());
+        return out;
     }
 
-    public String base64Encode(String fileId) throws IOException {
-        byte[] bytes = Files.readAllBytes(Path.of(uploadDir, fileId));
-        String encoded = Base64.getEncoder().encodeToString(bytes);
-        String outId = UUID.randomUUID() + ".txt";
-        Files.writeString(Path.of(outputDir, outId), encoded);
-        return outId;
+    public Path base64Encode(Path src) throws IOException {
+        String encoded = Base64.getEncoder().encodeToString(Files.readAllBytes(src));
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, encoded);
+        return out;
     }
 
-    public String base64Decode(String fileId) throws IOException {
-        String encoded = Files.readString(Path.of(uploadDir, fileId)).trim();
-        byte[] decoded = Base64.getDecoder().decode(encoded);
-        String outId = UUID.randomUUID() + ".bin";
-        Files.write(Path.of(outputDir, outId), decoded);
-        return outId;
+    public Path base64Decode(Path src) throws IOException {
+        byte[] decoded = Base64.getDecoder().decode(Files.readString(src).trim());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".bin");
+        Files.write(out, decoded);
+        return out;
     }
 
-    public String textDiff(String fileId1, String fileId2) throws IOException {
-        List<String> lines1 = Files.readAllLines(Path.of(uploadDir, fileId1));
-        List<String> lines2 = Files.readAllLines(Path.of(uploadDir, fileId2));
+    public Path textDiff(Path src1, Path src2) throws IOException {
+        List<String> lines1 = Files.readAllLines(src1);
+        List<String> lines2 = Files.readAllLines(src2);
         Patch<String> patch = DiffUtils.diff(lines1, lines2);
         StringBuilder sb = new StringBuilder();
         for (var delta : patch.getDeltas()) {
             sb.append(delta.getType()).append(" @ ").append(delta.getSource().getPosition()).append("\n");
-            for (String line : delta.getSource().getLines()) sb.append("- ").append(line).append("\n");
-            for (String line : delta.getTarget().getLines()) sb.append("+ ").append(line).append("\n");
+            for (String l : delta.getSource().getLines()) sb.append("- ").append(l).append("\n");
+            for (String l : delta.getTarget().getLines()) sb.append("+ ").append(l).append("\n");
             sb.append("\n");
         }
-        String outId = UUID.randomUUID() + ".diff";
-        Files.writeString(Path.of(outputDir, outId), sb.toString());
-        return outId;
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".diff");
+        Files.writeString(out, sb.toString());
+        return out;
     }
 
-    public String createTar(List<String> fileIds) throws IOException {
-        String outId = UUID.randomUUID() + ".tar.gz";
-        File outFile = new File(outputDir, outId);
+    public Path createTar(List<Path> sources) throws IOException {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".tar.gz");
         try (TarArchiveOutputStream tos = new TarArchiveOutputStream(
-                new GzipCompressorOutputStream(new FileOutputStream(outFile)))) {
+                new GzipCompressorOutputStream(new FileOutputStream(out.toFile())))) {
             tos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
-            for (String id : fileIds) {
-                File f = new File(uploadDir, id);
-                if (!f.exists()) continue;
-                TarArchiveEntry entry = new TarArchiveEntry(f, f.getName());
+            for (Path p : sources) {
+                if (!Files.exists(p)) continue;
+                TarArchiveEntry entry = new TarArchiveEntry(p.toFile(), p.getFileName().toString());
                 tos.putArchiveEntry(entry);
-                Files.copy(f.toPath(), tos);
+                Files.copy(p, tos);
                 tos.closeArchiveEntry();
             }
         }
-        return outId;
+        return out;
     }
 
-    public String extractTar(String fileId) throws IOException {
-        File src = new File(uploadDir, fileId);
+    public Path extractTar(Path src) throws IOException {
         String dirName = UUID.randomUUID().toString();
-        File outDir = new File(outputDir, dirName);
+        File outDir = Paths.get(outputDir, dirName).toFile();
         outDir.mkdirs();
+        boolean isGzip = src.toString().endsWith(".gz");
+        InputStream raw = new FileInputStream(src.toFile());
         try (TarArchiveInputStream tis = new TarArchiveInputStream(
-                new java.util.zip.GZIPInputStream(new FileInputStream(src)))) {
+                isGzip ? new GZIPInputStream(raw) : raw)) {
             TarArchiveEntry entry;
             while ((entry = tis.getNextEntry()) != null) {
                 File dest = new File(outDir, entry.getName());
-                if (entry.isDirectory()) {
-                    dest.mkdirs();
-                } else {
-                    dest.getParentFile().mkdirs();
-                    Files.copy(tis, dest.toPath());
-                }
+                if (entry.isDirectory()) { dest.mkdirs(); }
+                else { dest.getParentFile().mkdirs(); Files.copy(tis, dest.toPath()); }
             }
         }
-        // Re-zip extracted dir into a zip for download
-        String outId = UUID.randomUUID() + ".zip";
-        File outZip = new File(outputDir, outId);
-        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(
-                new FileOutputStream(outZip))) {
-            zipDir(outDir, outDir, zos);
+        Path zipOut = Paths.get(outputDir, UUID.randomUUID() + ".zip");
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipOut.toFile()))) {
+            zipDir(outDir.toPath(), outDir.toPath(), zos);
         }
-        return outId;
+        return zipOut;
     }
 
-    private void zipDir(File root, File dir, java.util.zip.ZipOutputStream zos) throws IOException {
-        for (File f : dir.listFiles()) {
-            if (f.isDirectory()) { zipDir(root, f, zos); continue; }
-            String rel = root.toPath().relativize(f.toPath()).toString();
-            zos.putNextEntry(new java.util.zip.ZipEntry(rel));
-            Files.copy(f.toPath(), zos);
-            zos.closeEntry();
+    private void zipDir(Path root, Path dir, ZipOutputStream zos) throws IOException {
+        try (var stream = Files.list(dir)) {
+            for (Path f : stream.toList()) {
+                if (Files.isDirectory(f)) { zipDir(root, f, zos); continue; }
+                zos.putNextEntry(new ZipEntry(root.relativize(f).toString()));
+                Files.copy(f, zos); zos.closeEntry();
+            }
         }
     }
 }
