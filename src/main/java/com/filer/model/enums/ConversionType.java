@@ -32,7 +32,13 @@ public enum ConversionType {
     // SVG
     SVG_TO_PNG, SVG_TO_PDF,
     // Video
-    VIDEO_THUMBNAIL, VIDEO_TO_GIF, VIDEO_AUDIO_EXTRACT,
+    VIDEO_THUMBNAIL, VIDEO_TO_GIF, VIDEO_AUDIO_EXTRACT, AUDIO_CONVERT,
+    // Office document → PDF (LibreOffice headless)
+    DOCX_TO_PDF, XLSX_TO_PDF, PPTX_TO_PDF, PPTX_TO_IMAGES,
+    // PDF extras
+    PDF_PAGE_EXTRACT, PDF_ADD_PAGE_NUMBERS,
+    // Data extras
+    JSON_TO_EXCEL,
     // File utilities
     FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO
 }

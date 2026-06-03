@@ -82,4 +82,47 @@ public class PdfEnhancementService {
             return out;
         }
     }
+
+    /** Extract a page range (1-based, inclusive) from a PDF. */
+    public Path extractPages(Path src, int fromPage, int toPage) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            int total = doc.getNumberOfPages();
+            int from = Math.max(1, fromPage);
+            int to   = Math.min(total, toPage <= 0 ? total : toPage);
+            try (PDDocument result = new PDDocument()) {
+                for (int i = from - 1; i < to; i++)
+                    result.addPage(doc.getPage(i));
+                Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+                result.save(out.toFile());
+                return out;
+            }
+        }
+    }
+
+    /** Stamp page numbers at the bottom centre of every page. */
+    public Path addPageNumbers(Path src) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(src.toFile())) {
+            PDType1Font font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            int total = doc.getNumberOfPages();
+            for (int i = 0; i < total; i++) {
+                PDPage page = doc.getPage(i);
+                PDRectangle mb = page.getMediaBox();
+                String label = (i + 1) + " / " + total;
+                float textWidth = font.getStringWidth(label) / 1000 * 11;
+                float x = (mb.getWidth() - textWidth) / 2;
+                try (PDPageContentStream cs = new PDPageContentStream(
+                        doc, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    cs.beginText();
+                    cs.setFont(font, 11);
+                    cs.setNonStrokingColor(0.4f, 0.4f, 0.4f);
+                    cs.newLineAtOffset(x, 20);
+                    cs.showText(label);
+                    cs.endText();
+                }
+            }
+            Path out = Paths.get(outputDir, UUID.randomUUID() + ".pdf");
+            doc.save(out.toFile());
+            return out;
+        }
+    }
 }

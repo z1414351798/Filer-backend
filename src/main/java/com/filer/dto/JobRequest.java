@@ -59,10 +59,15 @@ public class JobRequest {
     private String checksumAlgorithm;
     private String diffFileId;
 
-    // Video
+    // Video / audio
     private Integer videoSecond;
     private Integer videoDuration;
     private Integer videoFps;
+    private String targetFormat;   // AUDIO_CONVERT target (mp3/wav/ogg/aac/flac)
+
+    // PDF page extract
+    private Integer fromPage;
+    private Integer toPage;
 
     // Notifications
     private String notifyEmail;

@@ -66,6 +66,7 @@ filer:
   output-dir: /tmp/filer/outputs
   ffmpeg-path: ${FFMPEG_PATH:/usr/bin/ffmpeg}
   ffprobe-path: ${FFPROBE_PATH:/usr/bin/ffprobe}
+  libreoffice-path: ${LIBREOFFICE_PATH:libreoffice}
   job-ttl-seconds: 86400
   max-file-size-mb: 500
   jwt:

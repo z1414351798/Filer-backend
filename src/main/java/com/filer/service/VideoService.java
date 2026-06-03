@@ -60,4 +60,27 @@ public class VideoService {
         new Encoder().encode(new MultimediaObject(src.toFile()), out.toFile(), attrs);
         return out;
     }
+
+    /** Convert audio to a different format. Supported targets: mp3, wav, ogg, aac, flac, m4a. */
+    public Path convertAudio(Path src, String targetFormat) throws Exception {
+        String fmt = targetFormat == null || targetFormat.isBlank() ? "mp3" : targetFormat.toLowerCase();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + "." + fmt);
+        AudioAttributes audio = new AudioAttributes();
+        String codec = switch (fmt) {
+            case "mp3"       -> "libmp3lame";
+            case "ogg"       -> "libvorbis";
+            case "aac","m4a" -> "aac";
+            case "flac"      -> "flac";
+            default          -> "pcm_s16le"; // wav
+        };
+        audio.setCodec(codec);
+        audio.setBitRate(192_000);
+        audio.setChannels(2);
+        audio.setSamplingRate(44100);
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat(fmt.equals("m4a") ? "ipod" : fmt);
+        attrs.setAudioAttributes(audio);
+        new Encoder().encode(new MultimediaObject(src.toFile()), out.toFile(), attrs);
+        return out;
+    }
 }

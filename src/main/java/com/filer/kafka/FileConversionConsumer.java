@@ -199,6 +199,21 @@ public class FileConversionConsumer {
             case VIDEO_TO_GIF        -> videoService.videoToGif(src, intOrDef(p,"videoSecond",0),
                                           intOrDef(p,"videoDuration",5), intOrDef(p,"videoFps",10));
             case VIDEO_AUDIO_EXTRACT -> videoService.extractAudio(src);
+            case AUDIO_CONVERT       -> videoService.convertAudio(src, str(p,"targetFormat"));
+            // Office → PDF
+            case DOCX_TO_PDF -> officeService.officeToPdf(src);
+            case XLSX_TO_PDF -> officeService.officeToPdf(src);
+            case PPTX_TO_PDF -> officeService.officeToPdf(src);
+            case PPTX_TO_IMAGES -> {
+                List<Path> slides = officeService.pptxToImages(src);
+                yield archiveService.createZip(slides, null);
+            }
+            // PDF extras
+            case PDF_PAGE_EXTRACT -> pdfEnhancementService.extractPages(src,
+                                       intOrDef(p,"fromPage",1), intOrDef(p,"toPage",0));
+            case PDF_ADD_PAGE_NUMBERS -> pdfEnhancementService.addPageNumbers(src);
+            // Data extras
+            case JSON_TO_EXCEL -> officeService.jsonToExcel(src);
             // File utility types are handled via /api/info/* endpoints, not Kafka jobs
             case FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO ->
                 throw new UnsupportedOperationException(type + " is handled by /api/info endpoints");
@@ -227,6 +242,13 @@ public class FileConversionConsumer {
             case "csv"        -> "text/csv";
             case "xml"        -> "application/xml";
             case "xlsx"       -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "docx"       -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "pptx"       -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+            case "mp3"        -> "audio/mpeg";
+            case "wav"        -> "audio/wav";
+            case "ogg"        -> "audio/ogg";
+            case "aac","m4a"  -> "audio/aac";
+            case "flac"       -> "audio/flac";
             default           -> "application/octet-stream";
         };
     }
