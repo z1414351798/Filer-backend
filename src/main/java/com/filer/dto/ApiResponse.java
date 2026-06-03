@@ -1,7 +1,7 @@
 package com.filer.dto;
 
-import lombok.Data;
 import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder
@@ -16,6 +16,10 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> ok(String message, T data) {
         return ApiResponse.<T>builder().success(true).message(message).data(data).build();
+    }
+
+    public static <T> ApiResponse<T> success(T data) {
+        return ok(data);
     }
 
     public static <T> ApiResponse<T> error(String message) {
