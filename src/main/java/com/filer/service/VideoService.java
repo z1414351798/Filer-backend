@@ -7,7 +7,6 @@ import ws.schild.jave.MultimediaObject;
 import ws.schild.jave.encode.AudioAttributes;
 import ws.schild.jave.encode.EncodingAttributes;
 import ws.schild.jave.encode.VideoAttributes;
-import ws.schild.jave.info.VideoSize;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,7 +21,9 @@ public class VideoService {
     public Path extractThumbnail(Path src, int second) throws Exception {
         Path out = Paths.get(outputDir, UUID.randomUUID() + ".jpg");
         VideoAttributes video = new VideoAttributes();
-        video.setCodec("mjpeg"); video.setFrameRate(1); video.setBitRate(800_000);
+        video.setCodec("mjpeg");
+        video.setFrameRate(1);
+        video.setBitRate(800_000);
         EncodingAttributes attrs = new EncodingAttributes();
         attrs.setOutputFormat("image2");
         attrs.setOffset((float) second);
@@ -36,7 +37,7 @@ public class VideoService {
         Path out = Paths.get(outputDir, UUID.randomUUID() + ".gif");
         VideoAttributes video = new VideoAttributes();
         video.setFrameRate(Math.min(fps, 15));
-        video.setSize(new VideoSize(480, -1));
+        // No forced size — let JAVE2 use source dimensions at reduced frame rate
         EncodingAttributes attrs = new EncodingAttributes();
         attrs.setOutputFormat("gif");
         attrs.setOffset((float) startSecond);
@@ -49,8 +50,10 @@ public class VideoService {
     public Path extractAudio(Path src) throws Exception {
         Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp3");
         AudioAttributes audio = new AudioAttributes();
-        audio.setCodec("libmp3lame"); audio.setBitRate(192_000);
-        audio.setChannels(2); audio.setSamplingRate(44100);
+        audio.setCodec("libmp3lame");
+        audio.setBitRate(192_000);
+        audio.setChannels(2);
+        audio.setSamplingRate(44100);
         EncodingAttributes attrs = new EncodingAttributes();
         attrs.setOutputFormat("mp3");
         attrs.setAudioAttributes(audio);
