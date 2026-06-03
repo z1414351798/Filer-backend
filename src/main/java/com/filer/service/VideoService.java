@@ -1,17 +1,14 @@
 package com.filer.service;
 
-import net.bramp.ffmpeg.FFmpeg;
-import net.bramp.ffmpeg.FFmpegExecutor;
-import net.bramp.ffmpeg.FFprobe;
-import net.bramp.ffmpeg.builder.FFmpegBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import ws.schild.jave.Encoder;
+import ws.schild.jave.MultimediaObject;
+import ws.schild.jave.encode.AudioAttributes;
+import ws.schild.jave.encode.EncodingAttributes;
+import ws.schild.jave.encode.VideoAttributes;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.UUID;
 
 @Service
@@ -23,64 +20,61 @@ public class VideoService {
     @Value("${filer.output-dir:outputs}")
     private String outputDir;
 
-    @Value("${filer.ffmpeg-path:/usr/bin/ffmpeg}")
-    private String ffmpegPath;
-
-    @Value("${filer.ffprobe-path:/usr/bin/ffprobe}")
-    private String ffprobePath;
-
-    public String extractThumbnail(String fileId, int second) throws IOException {
+    public String extractThumbnail(String fileId, int second) throws Exception {
         File src = new File(uploadDir, fileId);
         String outId = UUID.randomUUID() + ".jpg";
         File outFile = new File(outputDir, outId);
 
-        FFmpeg ffmpeg = new FFmpeg(ffmpegPath);
-        FFprobe ffprobe = new FFprobe(ffprobePath);
-        FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(src.getAbsolutePath())
-                .addExtraArgs("-ss", String.valueOf(second))
-                .addOutput(outFile.getAbsolutePath())
-                .setFrames(1)
-                .setVideoFilter("scale=640:-1")
-                .done();
-        new FFmpegExecutor(ffmpeg, ffprobe).createJob(builder).run();
+        VideoAttributes video = new VideoAttributes();
+        video.setCodec("mjpeg");
+        video.setFrameRate(1);
+        video.setBitRate(800_000);
+
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat("image2");
+        attrs.setOffset((float) second);
+        attrs.setDuration(1.0f);
+        attrs.setVideoAttributes(video);
+
+        new Encoder().encode(new MultimediaObject(src), outFile, attrs);
         return outId;
     }
 
-    public String videoToGif(String fileId, int startSecond, int duration, int fps) throws IOException {
+    public String videoToGif(String fileId, int startSecond, int duration, int fps) throws Exception {
         File src = new File(uploadDir, fileId);
         String outId = UUID.randomUUID() + ".gif";
         File outFile = new File(outputDir, outId);
 
-        FFmpeg ffmpeg = new FFmpeg(ffmpegPath);
-        FFprobe ffprobe = new FFprobe(ffprobePath);
-        String vf = String.format("fps=%d,scale=480:-1:flags=lanczos", Math.min(fps, 15));
-        FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(src.getAbsolutePath())
-                .addExtraArgs("-ss", String.valueOf(startSecond))
-                .addExtraArgs("-t", String.valueOf(Math.min(duration, 10)))
-                .addOutput(outFile.getAbsolutePath())
-                .setVideoFilter(vf)
-                .done();
-        new FFmpegExecutor(ffmpeg, ffprobe).createJob(builder).run();
+        VideoAttributes video = new VideoAttributes();
+        video.setFrameRate(Math.min(fps, 15));
+        video.setSize(new ws.schild.jave.info.VideoSize(480, -1));
+
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat("gif");
+        attrs.setOffset((float) startSecond);
+        attrs.setDuration((float) Math.min(duration, 10));
+        attrs.setVideoAttributes(video);
+
+        new Encoder().encode(new MultimediaObject(src), outFile, attrs);
         return outId;
     }
 
-    public String extractAudio(String fileId) throws IOException {
+    public String extractAudio(String fileId) throws Exception {
         File src = new File(uploadDir, fileId);
         String outId = UUID.randomUUID() + ".mp3";
         File outFile = new File(outputDir, outId);
 
-        FFmpeg ffmpeg = new FFmpeg(ffmpegPath);
-        FFprobe ffprobe = new FFprobe(ffprobePath);
-        FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(src.getAbsolutePath())
-                .addOutput(outFile.getAbsolutePath())
-                .setAudioCodec("libmp3lame")
-                .setAudioBitRate(192_000)
-                .disableVideo()
-                .done();
-        new FFmpegExecutor(ffmpeg, ffprobe).createJob(builder).run();
+        AudioAttributes audio = new AudioAttributes();
+        audio.setCodec("libmp3lame");
+        audio.setBitRate(192_000);
+        audio.setChannels(2);
+        audio.setSamplingRate(44100);
+
+        EncodingAttributes attrs = new EncodingAttributes();
+        attrs.setOutputFormat("mp3");
+        attrs.setAudioAttributes(audio);
+
+        new Encoder().encode(new MultimediaObject(src), outFile, attrs);
         return outId;
     }
 }
