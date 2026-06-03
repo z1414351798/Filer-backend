@@ -114,4 +114,27 @@ public class JobRequest {
     private Integer randomRows;
     private String  randomColumns;  // comma-separated column names
     private Integer gifDelay;       // animated GIF delay in centiseconds (100 = 1s)
+    // Subtitle shift
+    private Long shiftMs;           // milliseconds (positive=later, negative=earlier)
+    // Password generate
+    private Integer pwdLength;      // default 16
+    private Boolean pwdUppercase;   // include uppercase
+    private Boolean pwdNumbers;     // include numbers
+    private Boolean pwdSymbols;     // include symbols !@#$%
+    // Passphrase generate
+    private Integer passphraseWords; // number of words (default 4)
+    // Color convert
+    private String colorInput;       // e.g. "#FF5733" or "255,87,51"
+    private String colorFrom;        // hex|rgb|hsl
+    private String colorTo;          // hex|rgb|hsl
+    // Placeholder image
+    private String placeholderBg;    // background color hex, e.g. "cccccc"
+    private String placeholderLabel; // text label on image
+    // Regex test
+    private String regexPattern;
+    private String regexInput;
+    private String regexFlags;       // i|m|s|im etc
+    // Audio fade
+    private Integer fadeInDuration;  // seconds
+    private Integer fadeOutDuration; // seconds
 }

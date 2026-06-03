@@ -83,4 +83,16 @@ public enum ConversionType {
     HTML_SANITIZE, HTML_TO_MARKDOWN,
     // Developer/data tools
     CSV_STATS, UUID_GENERATE, LOREM_IPSUM, RANDOM_CSV,
+    // Video extras
+    VIDEO_CONCAT, VIDEO_RESIZE, AUDIO_NORMALIZE, AUDIO_FADE,
+    // Text/subtitle
+    SUBTITLE_SHIFT,
+    // Developer/generator tools
+    REGEX_TEST, PASSWORD_GENERATE, PASSPHRASE_GENERATE, COLOR_CONVERT,
+    // Image generator
+    PLACEHOLDER_IMAGE,
+    // Web tools
+    HTML_MINIFY, JSON_MINIFY,
+    // Data format extras
+    XML_TO_YAML, YAML_TO_XML, CSV_TO_XML,
 }

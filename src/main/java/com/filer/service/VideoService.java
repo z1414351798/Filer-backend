@@ -231,6 +231,72 @@ public class VideoService {
         return List.of(part1, part2);
     }
 
+    /** Concatenate multiple video files into one MP4 using ffmpeg concat filter. */
+    public Path concatVideos(List<Path> sources) throws Exception {
+        if (sources.size() == 1) return convertToMp4(sources.get(0));
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        List<String> cmd = new java.util.ArrayList<>(List.of("ffmpeg", "-y"));
+        for (Path s : sources) { cmd.add("-i"); cmd.add(s.toAbsolutePath().toString()); }
+        StringBuilder fc = new StringBuilder();
+        for (int i = 0; i < sources.size(); i++) fc.append("[").append(i).append(":v][").append(i).append(":a]");
+        fc.append("concat=n=").append(sources.size()).append(":v=1:a=1[v][a]");
+        cmd.addAll(List.of("-filter_complex", fc.toString(), "-map", "[v]", "-map", "[a]", out.toAbsolutePath().toString()));
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        if (p.waitFor() != 0) throw new IOException("ffmpeg concat failed: " + log);
+        return out;
+    }
+
+    /** Resize video to given dimensions (use -1 to preserve aspect ratio). */
+    public Path resizeVideo(Path src, int width, int height) throws Exception {
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".mp4");
+        int w = width  > 0 ? width  : -2;
+        int h = height > 0 ? height : -2;
+        List<String> cmd = List.of("ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-vf", "scale=" + w + ":" + h,
+            "-c:v", "libx264", "-c:a", "copy",
+            out.toAbsolutePath().toString());
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        if (p.waitFor() != 0) throw new IOException("ffmpeg resize failed: " + log);
+        return out;
+    }
+
+    /** Normalize audio loudness using ffmpeg loudnorm filter. */
+    public Path normalizeAudio(Path src) throws Exception {
+        String ext = src.getFileName().toString().replaceFirst(".*\\.", "");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + "." + ext);
+        List<String> cmd = List.of("ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
+            out.toAbsolutePath().toString());
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        if (p.waitFor() != 0) throw new IOException("ffmpeg normalize failed: " + log);
+        return out;
+    }
+
+    /** Add fade-in and/or fade-out to audio file. */
+    public Path fadeAudio(Path src, int fadeInSec, int fadeOutSec) throws Exception {
+        String ext = src.getFileName().toString().replaceFirst(".*\\.", "");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + "." + ext);
+        StringBuilder af = new StringBuilder();
+        if (fadeInSec > 0)  af.append("afade=t=in:d=").append(fadeInSec);
+        if (fadeInSec > 0 && fadeOutSec > 0) af.append(",");
+        if (fadeOutSec > 0) af.append("afade=t=out:st=0:d=").append(fadeOutSec);
+        if (af.length() == 0) af.append("anull");
+        List<String> cmd = List.of("ffmpeg", "-y", "-i", src.toAbsolutePath().toString(),
+            "-af", af.toString(),
+            out.toAbsolutePath().toString());
+        ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        if (p.waitFor() != 0) throw new IOException("ffmpeg fade failed: " + log);
+        return out;
+    }
+
     /** Concatenate multiple audio files into one MP3 using FFmpeg filter_complex. */
     public Path mergeAudio(List<Path> sources) throws Exception {
         if (sources.size() == 1) return convertAudio(sources.get(0), "mp3");

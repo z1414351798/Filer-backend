@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.patch.Patch;
@@ -39,6 +40,7 @@ public class DataFormatService {
 
     private final ObjectMapper jsonMapper = new ObjectMapper();
     private final YAMLMapper yamlMapper = new YAMLMapper();
+    private final XmlMapper xmlMapper = new XmlMapper();
 
     public Path jsonToYaml(Path src) throws IOException {
         JsonNode node = jsonMapper.readTree(src.toFile());
@@ -519,6 +521,246 @@ public class DataFormatService {
         }
         Path out = Paths.get(outputDir, java.util.UUID.randomUUID() + ".csv");
         Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Shift SRT or VTT subtitle timestamps by shiftMs milliseconds (positive=later). */
+    public Path shiftSubtitle(Path src, long shiftMs) throws IOException {
+        String content = Files.readString(src);
+        String name = src.getFileName().toString().toLowerCase();
+        boolean isSrt = name.endsWith(".srt");
+        String shifted;
+        if (isSrt) {
+            // SRT time format: HH:MM:SS,mmm --> HH:MM:SS,mmm
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d{2}):(\\d{2}):(\\d{2}),(\\d{3})").matcher(content);
+            shifted = m.replaceAll(mr -> shiftTime(mr.group(), shiftMs, ','));
+        } else {
+            // VTT time format: HH:MM:SS.mmm
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d{2}):(\\d{2}):(\\d{2})\\.(\\d{3})").matcher(content);
+            shifted = m.replaceAll(mr -> shiftTime(mr.group(), shiftMs, '.'));
+        }
+        String ext = isSrt ? ".srt" : ".vtt";
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ext);
+        Files.writeString(out, shifted);
+        return out;
+    }
+
+    private String shiftTime(String ts, long shiftMs, char sep) {
+        try {
+            int sepIdx = ts.lastIndexOf(sep);
+            String[] parts = ts.substring(0, sepIdx).split(":");
+            long ms = Long.parseLong(ts.substring(sepIdx + 1));
+            long h = Long.parseLong(parts[0]), m = Long.parseLong(parts[1]), sec = Long.parseLong(parts[2]);
+            long total = (h * 3600 + m * 60 + sec) * 1000 + ms + shiftMs;
+            if (total < 0) total = 0;
+            long outH = total / 3_600_000; total %= 3_600_000;
+            long outM = total / 60_000;    total %= 60_000;
+            long outS = total / 1_000;     long outMs = total % 1_000;
+            return String.format("%02d:%02d:%02d%c%03d", outH, outM, outS, sep, outMs);
+        } catch (Exception e) { return ts; }
+    }
+
+    /** Test a regex pattern against input text. Returns match details as text. */
+    public Path testRegex(String pattern, String input, String flags) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Pattern: ").append(pattern).append("\n");
+        sb.append("Flags:   ").append(flags == null ? "none" : flags).append("\n\n");
+        try {
+            int jFlags = 0;
+            if (flags != null) {
+                if (flags.contains("i")) jFlags |= java.util.regex.Pattern.CASE_INSENSITIVE;
+                if (flags.contains("m")) jFlags |= java.util.regex.Pattern.MULTILINE;
+                if (flags.contains("s")) jFlags |= java.util.regex.Pattern.DOTALL;
+            }
+            java.util.regex.Pattern pat = java.util.regex.Pattern.compile(pattern, jFlags);
+            java.util.regex.Matcher mat = pat.matcher(input == null ? "" : input);
+            int count = 0;
+            while (mat.find()) {
+                count++;
+                sb.append("Match ").append(count).append(": [").append(mat.start()).append(",").append(mat.end()).append("] \"").append(mat.group()).append("\"\n");
+                for (int g = 1; g <= mat.groupCount(); g++)
+                    sb.append("  Group ").append(g).append(": \"").append(mat.group(g)).append("\"\n");
+            }
+            if (count == 0) sb.append("No matches found.\n");
+            else sb.append("\nTotal: ").append(count).append(" match(es)\n");
+        } catch (java.util.regex.PatternSyntaxException e) {
+            sb.append("Invalid pattern: ").append(e.getMessage()).append("\n");
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Generate passwords using SecureRandom. */
+    public Path generatePassword(int length, boolean upper, boolean numbers, boolean symbols) throws IOException {
+        String lower  = "abcdefghijklmnopqrstuvwxyz";
+        String uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String digits = "0123456789";
+        String syms   = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+        StringBuilder chars = new StringBuilder(lower);
+        if (upper)   chars.append(uppers);
+        if (numbers) chars.append(digits);
+        if (symbols) chars.append(syms);
+        String pool = chars.toString();
+        java.security.SecureRandom rng = new java.security.SecureRandom();
+        int len = Math.min(Math.max(length, 8), 256);
+        StringBuilder sb = new StringBuilder();
+        for (int p = 0; p < 10; p++) {
+            StringBuilder pwd = new StringBuilder();
+            for (int i = 0; i < len; i++) pwd.append(pool.charAt(rng.nextInt(pool.length())));
+            sb.append(pwd).append("\n");
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Generate passphrase using a built-in word list. */
+    public Path generatePassphrase(int wordCount) throws IOException {
+        String[] words = {
+            "apple","brave","cloud","dance","eagle","flame","grace","heart","ivory","joker",
+            "kindle","lemon","mango","noble","ocean","peace","queen","river","storm","tower",
+            "ultra","vivid","water","xenon","yield","zebra","alpha","bravo","coral","delta",
+            "ember","frost","glass","honey","index","jewel","karma","lunar","maple","night",
+            "orbit","pixel","quest","rocky","solar","tiger","umbra","valve","wheat","xerox",
+            "yacht","zonal","amber","burst","cedar","dwell","feast","grove","hatch","inlet",
+            "jelly","kneel","laser","mount","nerve","olive","pilot","quota","realm","swift",
+            "trout","union","viola","waltz","xylem","youth","zesty","agent","blade","chess"
+        };
+        java.security.SecureRandom rng = new java.security.SecureRandom();
+        int n = Math.min(Math.max(wordCount, 2), 12);
+        StringBuilder sb = new StringBuilder();
+        for (int p = 0; p < 5; p++) {
+            List<String> phrase = new java.util.ArrayList<>();
+            for (int w = 0; w < n; w++) phrase.add(words[rng.nextInt(words.length)]);
+            sb.append(String.join("-", phrase)).append("\n");
+        }
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    /** Convert color between HEX, RGB, and HSL formats. */
+    public Path convertColor(String input, String from, String to) throws IOException {
+        float[] rgb = parseColorInput(input, from == null ? "hex" : from.toLowerCase());
+        String hex = String.format("#%02X%02X%02X", (int)rgb[0], (int)rgb[1], (int)rgb[2]);
+        float[] hsl = rgbToHsl(rgb[0]/255f, rgb[1]/255f, rgb[2]/255f);
+        StringBuilder sb = new StringBuilder();
+        sb.append("HEX: ").append(hex).append("\n");
+        sb.append("RGB: rgb(").append((int)rgb[0]).append(", ").append((int)rgb[1]).append(", ").append((int)rgb[2]).append(")\n");
+        sb.append("HSL: hsl(").append(String.format("%.1f", hsl[0])).append("°, ")
+          .append(String.format("%.1f", hsl[1]*100)).append("%, ")
+          .append(String.format("%.1f", hsl[2]*100)).append("%)\n");
+        String target = to == null ? "all" : to.toLowerCase();
+        sb.append("\nRequested (").append(target).append("): ");
+        if (target.equals("hex")) sb.append(hex);
+        else if (target.equals("rgb")) sb.append("rgb(").append((int)rgb[0]).append(",").append((int)rgb[1]).append(",").append((int)rgb[2]).append(")");
+        else if (target.equals("hsl")) sb.append("hsl(").append(String.format("%.1f",hsl[0])).append(",").append(String.format("%.1f",hsl[1]*100)).append("%,").append(String.format("%.1f",hsl[2]*100)).append("%)");
+        else sb.append("(see above)");
+        sb.append("\n");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".txt");
+        Files.writeString(out, sb.toString());
+        return out;
+    }
+
+    private float[] parseColorInput(String input, String format) {
+        if (input == null) return new float[]{128,128,128};
+        input = input.trim();
+        if (format.equals("hex")) {
+            String h = input.replace("#","");
+            if (h.length() == 3) h = "" + h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+            int v = Integer.parseInt(h, 16);
+            return new float[]{(v>>16)&0xFF, (v>>8)&0xFF, v&0xFF};
+        } else if (format.equals("rgb")) {
+            String[] p = input.replaceAll("[^\\d,]","").split(",");
+            return new float[]{Float.parseFloat(p[0]), Float.parseFloat(p[1]), Float.parseFloat(p[2])};
+        } else { // hsl
+            String[] p = input.replaceAll("[^\\d.,]","").split(",");
+            float h2 = Float.parseFloat(p[0]), s = Float.parseFloat(p[1])/100, l = Float.parseFloat(p[2])/100;
+            return hslToRgb(h2, s, l);
+        }
+    }
+
+    private float[] hslToRgb(float h, float s, float l) {
+        float c = (1 - Math.abs(2*l - 1)) * s;
+        float x = c * (1 - Math.abs((h/60f)%2 - 1));
+        float m = l - c/2;
+        float r,g,b;
+        if (h<60){r=c;g=x;b=0;} else if(h<120){r=x;g=c;b=0;} else if(h<180){r=0;g=c;b=x;}
+        else if(h<240){r=0;g=x;b=c;} else if(h<300){r=x;g=0;b=c;} else{r=c;g=0;b=x;}
+        return new float[]{(r+m)*255, (g+m)*255, (b+m)*255};
+    }
+
+    private float[] rgbToHsl(float r, float g, float b) {
+        float max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+        float l = (max+min)/2, s = 0, h = 0;
+        if (max != min) {
+            float d = max - min;
+            s = l > 0.5f ? d/(2-max-min) : d/(max+min);
+            if (max == r) h = (g-b)/d + (g < b ? 6 : 0);
+            else if (max == g) h = (b-r)/d + 2;
+            else h = (r-g)/d + 4;
+            h *= 60;
+        }
+        return new float[]{h, s, l};
+    }
+
+    /** Minify HTML by removing unnecessary whitespace between tags. */
+    public Path minifyHtml(Path src) throws IOException {
+        String html = Files.readString(src);
+        org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(html);
+        doc.outputSettings().prettyPrint(false);
+        String minified = doc.outerHtml().replaceAll(">\\s+<", "><").trim();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".html");
+        Files.writeString(out, minified);
+        return out;
+    }
+
+    /** Minify JSON by removing all whitespace. */
+    public Path minifyJson(Path src) throws IOException {
+        JsonNode node = jsonMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".json");
+        Files.writeString(out, jsonMapper.writeValueAsString(node));
+        return out;
+    }
+
+    /** Convert XML to YAML. */
+    public Path xmlToYaml(Path src) throws IOException {
+        JsonNode node = xmlMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".yaml");
+        Files.writeString(out, yamlMapper.writeValueAsString(node));
+        return out;
+    }
+
+    /** Convert YAML to XML. */
+    public Path yamlToXml(Path src) throws IOException {
+        JsonNode node = yamlMapper.readTree(src.toFile());
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".xml");
+        Files.writeString(out, xmlMapper.writeValueAsString(node));
+        return out;
+    }
+
+    /** Convert CSV to XML. */
+    public Path csvToXml(Path src) throws IOException {
+        List<String> lines = Files.readAllLines(src);
+        if (lines.isEmpty()) { Path out = Paths.get(outputDir, UUID.randomUUID()+".xml"); Files.writeString(out,"<data/>"); return out; }
+        String[] headers = parseCsvLine(lines.get(0));
+        StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<data>\n");
+        for (int r = 1; r < lines.size(); r++) {
+            String[] cells = parseCsvLine(lines.get(r));
+            xml.append("  <row>\n");
+            for (int c = 0; c < headers.length; c++) {
+                String v = c < cells.length ? cells[c] : "";
+                String tag = headers[c].trim().replaceAll("[^a-zA-Z0-9_]","_");
+                xml.append("    <").append(tag).append(">").append(v.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")).append("</").append(tag).append(">\n");
+            }
+            xml.append("  </row>\n");
+        }
+        xml.append("</data>");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".xml");
+        Files.writeString(out, xml.toString());
         return out;
     }
 }

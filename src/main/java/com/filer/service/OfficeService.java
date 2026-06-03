@@ -234,6 +234,28 @@ public class OfficeService {
         return out;
     }
 
+    /** Convert a PDF to DOCX using LibreOffice headless. */
+    public Path pdfToDocx(Path src) throws IOException, InterruptedException {
+        Path outDir = Paths.get(outputDir);
+        ProcessBuilder pb = new ProcessBuilder(
+            libreofficePath, "--headless", "--norestore",
+            "--convert-to", "docx", "--outdir", outDir.toString(),
+            src.toAbsolutePath().toString())
+            .redirectErrorStream(true);
+        Process p = pb.start();
+        String log = new String(p.getInputStream().readAllBytes());
+        int code = p.waitFor();
+        if (code != 0) throw new IOException("LibreOffice pdf→docx failed: " + log);
+        String baseName = src.getFileName().toString();
+        int dot = baseName.lastIndexOf('.');
+        String stem = dot >= 0 ? baseName.substring(0, dot) : baseName;
+        Path lo = Paths.get(outputDir, stem + ".docx");
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".docx");
+        if (lo.toFile().exists()) java.nio.file.Files.move(lo, out);
+        else throw new IOException("LibreOffice did not produce docx output");
+        return out;
+    }
+
     /** Convert a JSON array-of-objects to an XLSX workbook. */
     public Path jsonToExcel(Path src) throws IOException {
         JsonNode root = objectMapper.readTree(src.toFile());

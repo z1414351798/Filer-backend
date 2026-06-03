@@ -155,7 +155,7 @@ public class FileConversionConsumer {
                                        str(p,"watermarkText"), floatOrDef(p,"watermarkOpacity",0.3f));
             case PDF_PAGE_ROTATE  -> pdfEnhancementService.rotatePage(src,
                                        intOrDef(p,"pageIndex",0), intOrDef(p,"rotateDegrees",90));
-            case PDF_TO_DOCX      -> pdfEnhancementService.pdfToText(src);
+            case PDF_TO_DOCX      -> officeService.pdfToDocx(src);
             case OCR_IMAGE -> ocrService.ocrImage(src);
             case OCR_PDF   -> ocrService.ocrPdf(src);
             case ZIP_CREATE -> {
@@ -308,6 +308,26 @@ public class FileConversionConsumer {
             case PDF_ADD_PAGE_NUMBERS -> pdfEnhancementService.addPageNumbers(src);
             // Data extras
             case JSON_TO_EXCEL -> officeService.jsonToExcel(src);
+            // Wave 6 new cases
+            case VIDEO_CONCAT -> {
+                List<Path> srcs = listOf(p,"fileIds").stream()
+                        .map(id -> fileStorageService.getFilePath(id)).toList();
+                yield videoService.concatVideos(srcs.isEmpty() ? List.of(src) : srcs);
+            }
+            case VIDEO_RESIZE       -> videoService.resizeVideo(src, intOrDef(p,"targetWidth",0), intOrDef(p,"targetHeight",0));
+            case AUDIO_NORMALIZE    -> videoService.normalizeAudio(src);
+            case AUDIO_FADE         -> videoService.fadeAudio(src, intOrDef(p,"fadeInDuration",0), intOrDef(p,"fadeOutDuration",0));
+            case SUBTITLE_SHIFT     -> dataFormatService.shiftSubtitle(src, longOrDef(p,"shiftMs",0L));
+            case REGEX_TEST         -> dataFormatService.testRegex(strOrDef(p,"regexPattern",".*"), strOrDef(p,"regexInput",""), strOrDef(p,"regexFlags",""));
+            case PASSWORD_GENERATE  -> dataFormatService.generatePassword(intOrDef(p,"pwdLength",16), boolOrDef(p,"pwdUppercase",true), boolOrDef(p,"pwdNumbers",true), boolOrDef(p,"pwdSymbols",false));
+            case PASSPHRASE_GENERATE -> dataFormatService.generatePassphrase(intOrDef(p,"passphraseWords",4));
+            case COLOR_CONVERT      -> dataFormatService.convertColor(strOrDef(p,"colorInput","#FFFFFF"), strOrDef(p,"colorFrom","hex"), strOrDef(p,"colorTo","all"));
+            case PLACEHOLDER_IMAGE  -> imageEnhancementService.generatePlaceholder(intOrDef(p,"targetWidth",400), intOrDef(p,"targetHeight",300), strOrDef(p,"placeholderBg","CCCCCC"), strOrDef(p,"placeholderLabel",""));
+            case HTML_MINIFY        -> dataFormatService.minifyHtml(src);
+            case JSON_MINIFY        -> dataFormatService.minifyJson(src);
+            case XML_TO_YAML        -> dataFormatService.xmlToYaml(src);
+            case YAML_TO_XML        -> dataFormatService.yamlToXml(src);
+            case CSV_TO_XML         -> dataFormatService.csvToXml(src);
             // File utility types are handled via /api/info/* endpoints, not Kafka jobs
             case FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO ->
                 throw new UnsupportedOperationException(type + " is handled by /api/info endpoints");
@@ -339,7 +359,6 @@ public class FileConversionConsumer {
             case "xlsx"       -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             case "docx"       -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             case "pptx"       -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            case "mp3"        -> "audio/mpeg";
             case "wav"        -> "audio/wav";
             case "ogg"        -> "audio/ogg";
             case "aac","m4a"  -> "audio/aac";
@@ -374,5 +393,17 @@ public class FileConversionConsumer {
     private List<String> listOf(Map<String, Object> p, String k) {
         Object v = p.get(k);
         return v instanceof List<?> l ? (List<String>) l : List.of();
+    }
+    private long longOrDef(Map<String, Object> p, String k, long def) {
+        Object v = p.get(k); if (v == null) return def;
+        return v instanceof Number ? ((Number)v).longValue() : Long.parseLong(v.toString());
+    }
+    private boolean boolOrDef(Map<String, Object> p, String k, boolean def) {
+        Object v = p.get(k); if (v == null) return def;
+        if (v instanceof Boolean) return (Boolean)v;
+        return Boolean.parseBoolean(v.toString());
+    }
+    private String strOrDef(Map<String, Object> p, String k, String def) {
+        Object v = p.get(k); return v != null ? v.toString() : def;
     }
 }

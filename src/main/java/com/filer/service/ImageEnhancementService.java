@@ -284,6 +284,37 @@ public class ImageEnhancementService {
         return out;
     }
 
+    /** Generate a placeholder image with given dimensions and optional label. */
+    public Path generatePlaceholder(int width, int height, String bg, String label) throws IOException {
+        int w = Math.min(Math.max(width, 16), 4000);
+        int h = Math.min(Math.max(height, 16), 4000);
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        // Background
+        try {
+            String hex = (bg == null || bg.isBlank()) ? "CCCCCC" : bg.replace("#","");
+            g.setColor(java.awt.Color.decode("#" + hex));
+        } catch (Exception e) { g.setColor(java.awt.Color.LIGHT_GRAY); }
+        g.fillRect(0, 0, w, h);
+        // Border
+        g.setColor(java.awt.Color.GRAY);
+        g.drawRect(0, 0, w-1, h-1);
+        // Label
+        String text = (label == null || label.isBlank()) ? w + " × " + h : label;
+        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setColor(new java.awt.Color(80,80,80));
+        int fontSize = Math.max(10, Math.min(w / (text.length() + 2), h / 4));
+        g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, fontSize));
+        java.awt.FontMetrics fm = g.getFontMetrics();
+        int tx = (w - fm.stringWidth(text)) / 2;
+        int ty = (h + fm.getAscent() - fm.getDescent()) / 2;
+        g.drawString(text, tx, ty);
+        g.dispose();
+        Path out = Paths.get(outputDir, UUID.randomUUID() + ".png");
+        javax.imageio.ImageIO.write(img, "png", out.toFile());
+        return out;
+    }
+
     /** Generate a pixel-diff image highlighting differences between two images. */
     public Path compareImages(Path src1, Path src2) throws IOException {
         BufferedImage img1 = ImageIO.read(src1.toFile());
