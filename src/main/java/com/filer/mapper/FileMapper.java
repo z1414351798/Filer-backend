@@ -11,4 +11,5 @@ public interface FileMapper {
     FileRecord findById(Long id);
     List<FileRecord> findAll();
     List<FileRecord> findByUserId(Long userId);
+    void deleteByFileId(String fileId);
 }

@@ -27,4 +27,8 @@
     <select id="findById" resultMap="userMap">
         SELECT * FROM `user` WHERE id = #{id} LIMIT 1
     </select>
+
+    <update id="updatePasswordHash">
+        UPDATE `user` SET password_hash = #{passwordHash} WHERE id = #{id}
+    </update>
 </mapper>

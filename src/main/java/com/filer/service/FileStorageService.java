@@ -98,4 +98,15 @@ public class FileStorageService {
     public List<FileRecord> listAll() {
         return fileMapper.findAll();
     }
+
+    public void delete(String fileId) {
+        try {
+            FileRecord record = getRecord(fileId);
+            if (record != null) {
+                Path filePath = Paths.get(record.getFilePath());
+                Files.deleteIfExists(filePath);
+                fileMapper.deleteByFileId(fileId);
+            }
+        } catch (Exception ignored) {}
+    }
 }

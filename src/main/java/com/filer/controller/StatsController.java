@@ -1,6 +1,7 @@
 package com.filer.controller;
 
 import com.filer.mapper.JobMapper;
+import com.filer.service.UserService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -10,9 +11,11 @@ import java.util.Map;
 @RequestMapping("/api/stats")
 public class StatsController {
     private final JobMapper jobMapper;
+    private final UserService userService;
 
-    public StatsController(JobMapper jobMapper) {
+    public StatsController(JobMapper jobMapper, UserService userService) {
         this.jobMapper = jobMapper;
+        this.userService = userService;
     }
 
     @GetMapping("/conversions")
@@ -31,8 +34,7 @@ public class StatsController {
 
     private Long getUserId(UserDetails user) {
         if (user == null) return -1L;
-        try {
-            return ((com.filer.model.User) user).getId();
-        } catch (Exception e) { return -1L; }
+        com.filer.model.User u = userService.findByUsername(user.getUsername());
+        return u != null ? u.getId() : -1L;
     }
 }

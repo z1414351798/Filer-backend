@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/jobs")
@@ -20,9 +21,15 @@ public class JobController {
     @PostMapping
     public ResponseEntity<ApiResponse<JobResponse>> createJob(
             @RequestBody JobRequest request) {
-        if (request.getFileId() == null || request.getConversionType() == null) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("fileId and conversionType are required"));
+        if (request.getConversionType() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("conversionType is required"));
+        }
+        boolean noFileType = Set.of(
+            "UUID_GENERATE","LOREM_IPSUM","RANDOM_CSV","PASSWORD_GENERATE",
+            "PASSPHRASE_GENERATE","REGEX_TEST","COLOR_CONVERT","PLACEHOLDER_IMAGE"
+        ).contains(request.getConversionType());
+        if (!noFileType && (request.getFileId() == null || request.getFileId().isBlank())) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("fileId is required for this conversion type"));
         }
         JobResponse resp = jobService.createJob(request);
         return ResponseEntity.ok(ApiResponse.ok("Job created and queued", resp));

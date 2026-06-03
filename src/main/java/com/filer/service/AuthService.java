@@ -44,4 +44,13 @@ public class AuthService {
                 Map.of("role", user.getRole(), "username", user.getUsername()));
         return new AuthDto.AuthResponse(token, user.getUsername(), user.getEmail(), user.getRole());
     }
+
+    public void changePassword(String email, String oldPassword, String newPassword) {
+        User user = userMapper.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash()))
+            throw new IllegalArgumentException("Current password is incorrect");
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userMapper.updatePasswordHash(user.getId(), user.getPasswordHash());
+    }
 }

@@ -10,6 +10,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -53,6 +55,12 @@ public class FileController {
         return ResponseEntity.ok(ApiResponse.ok(fileStorageService.listAll()));
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<List<FileRecord>>> myFiles(
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(fileStorageService.listAll()));
+    }
+
     @GetMapping("/{fileId}")
     public ResponseEntity<ApiResponse<FileRecord>> getFile(@PathVariable String fileId) {
         FileRecord record = fileStorageService.getRecord(fileId);
@@ -60,5 +68,11 @@ public class FileController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(ApiResponse.ok(record));
+    }
+
+    @DeleteMapping("/{fileId}")
+    public ResponseEntity<ApiResponse<Void>> deleteFile(@PathVariable String fileId) {
+        fileStorageService.delete(fileId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

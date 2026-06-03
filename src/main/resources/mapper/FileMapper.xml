@@ -35,4 +35,8 @@
     <select id="findByUserId" resultMap="fileMap">
         SELECT * FROM file_record WHERE user_id = #{userId} ORDER BY created_at DESC
     </select>
+
+    <delete id="deleteByFileId">
+        DELETE FROM file_record WHERE file_id = #{fileId}
+    </delete>
 </mapper>
