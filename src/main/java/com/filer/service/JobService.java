@@ -43,31 +43,47 @@ public class JobService {
         jobMapper.insert(job);
         cacheJob(job);
 
-        // Build Kafka payload — every non-null request field is forwarded
+        // Build Kafka payload
         Map<String, Object> payload = new HashMap<>();
+        payload.put("jobId", jobId);
+        payload.put("conversionType", request.getConversionType());
         payload.put("fileId", request.getFileId());
-        if (request.getWidth()             != null) payload.put("width",             request.getWidth());
-        if (request.getHeight()            != null) payload.put("height",            request.getHeight());
-        if (request.getQuality()           != null) payload.put("quality",           request.getQuality());
-        if (request.getAngle()             != null) payload.put("angle",             request.getAngle());
-        if (request.getWatermarkText()     != null) payload.put("watermarkText",     request.getWatermarkText());
-        if (request.getSplitPage()         != null) payload.put("splitPage",         request.getSplitPage());
-        if (request.getPassword()          != null) payload.put("password",          request.getPassword());
-        if (request.getFileIds()           != null) payload.put("fileIds",           request.getFileIds());
-        if (request.getLanguage()          != null) payload.put("language",          request.getLanguage());
-        if (request.getCropX()             != null) payload.put("cropX",             request.getCropX());
-        if (request.getCropY()             != null) payload.put("cropY",             request.getCropY());
-        if (request.getCropWidth()         != null) payload.put("cropWidth",         request.getCropWidth());
-        if (request.getCropHeight()        != null) payload.put("cropHeight",        request.getCropHeight());
-        if (request.getBrightness()        != null) payload.put("brightness",        request.getBrightness());
-        if (request.getBlurRadius()        != null) payload.put("blurRadius",        request.getBlurRadius());
-        if (request.getHorizontal()        != null) payload.put("horizontal",        request.getHorizontal().toString());
-        if (request.getQrText()            != null) payload.put("qrText",            request.getQrText());
-        if (request.getQrSize()            != null) payload.put("qrSize",            request.getQrSize());
-        if (request.getBarcodeFormat()     != null) payload.put("barcodeFormat",     request.getBarcodeFormat());
-        if (request.getTextContent()       != null) payload.put("textContent",       request.getTextContent());
-        if (request.getChecksumAlgorithm() != null) payload.put("checksumAlgorithm", request.getChecksumAlgorithm());
-        if (request.getOptions()           != null) payload.putAll(request.getOptions());
+        if (request.getNotifyEmail() != null) payload.put("notifyEmail", request.getNotifyEmail());
+
+        putIfNotNull(payload, "targetWidth",     request.getTargetWidth());
+        putIfNotNull(payload, "targetHeight",    request.getTargetHeight());
+        putIfNotNull(payload, "cols",            request.getCols());
+        putIfNotNull(payload, "quality",         request.getQuality());
+        putIfNotNull(payload, "rotateDegrees",   request.getRotateDegrees());
+        putIfNotNull(payload, "watermarkText",   request.getWatermarkText());
+        putIfNotNull(payload, "watermarkOpacity",request.getWatermarkOpacity());
+        putIfNotNull(payload, "borderSize",      request.getBorderSize());
+        putIfNotNull(payload, "borderColor",     request.getBorderColor());
+        putIfNotNull(payload, "cropX",           request.getCropX());
+        putIfNotNull(payload, "cropY",           request.getCropY());
+        putIfNotNull(payload, "cropWidth",       request.getCropWidth());
+        putIfNotNull(payload, "cropHeight",      request.getCropHeight());
+        putIfNotNull(payload, "brightness",      request.getBrightness());
+        putIfNotNull(payload, "blurRadius",      request.getBlurRadius());
+        putIfNotNull(payload, "cornerRadius",    request.getCornerRadius());
+        putIfNotNull(payload, "horizontal",      request.getHorizontal());
+        putIfNotNull(payload, "paletteCount",    request.getPaletteCount());
+        putIfNotNull(payload, "splitPage",       request.getSplitPage());
+        putIfNotNull(payload, "password",        request.getPassword());
+        putIfNotNull(payload, "fileIds",         request.getFileIds());
+        putIfNotNull(payload, "pageIndex",       request.getPageIndex());
+        putIfNotNull(payload, "language",        request.getLanguage());
+        putIfNotNull(payload, "qrContent",       request.getQrContent());
+        putIfNotNull(payload, "qrSize",          request.getQrSize());
+        putIfNotNull(payload, "barcodeContent",  request.getBarcodeContent());
+        putIfNotNull(payload, "barcodeFormat",   request.getBarcodeFormat());
+        putIfNotNull(payload, "textContent",     request.getTextContent());
+        putIfNotNull(payload, "checksumAlgorithm",request.getChecksumAlgorithm());
+        putIfNotNull(payload, "diffFileId",      request.getDiffFileId());
+        putIfNotNull(payload, "videoSecond",     request.getVideoSecond());
+        putIfNotNull(payload, "videoDuration",   request.getVideoDuration());
+        putIfNotNull(payload, "videoFps",        request.getVideoFps());
+        if (request.getOptions() != null) payload.putAll(request.getOptions());
 
         producer.sendConversionTask(jobId, request.getConversionType(), payload);
         return toResponse(job);
@@ -106,6 +122,10 @@ public class JobService {
         jobMapper.markFailed(jobId, errorMessage);
         ConversionJob job = jobMapper.findByJobId(jobId);
         if (job != null) cacheJob(job);
+    }
+
+    private void putIfNotNull(Map<String, Object> map, String key, Object value) {
+        if (value != null) map.put(key, value);
     }
 
     private void cacheJob(ConversionJob job) {

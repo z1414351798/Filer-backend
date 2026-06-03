@@ -10,54 +10,59 @@ public class JobRequest {
     private String conversionType;
     private Map<String, Object> options;
 
-    // Image resize / collage
-    private Integer width;
-    private Integer height;
-    private Integer cols;           // collage columns
-    // Image compress
-    private Float quality;
+    // Image resize
+    private Integer targetWidth;
+    private Integer targetHeight;
+    // Image collage
+    private Integer cols;
+    // Image compress (0-100)
+    private Integer quality;
     // Image rotate
-    private Integer angle;
-    // Image watermark / border
+    private Integer rotateDegrees;
+    // Image watermark
     private String watermarkText;
+    // Image border
     private Integer borderSize;
-    private String borderColor;     // hex e.g. #FF0000
+    private String borderColor;
     // Image crop
     private Integer cropX, cropY, cropWidth, cropHeight;
     // Image filters
     private Float brightness;
     private Integer blurRadius;
-    private Integer cornerRadius;   // round corners
+    // Round corners
+    private Integer cornerRadius;
     // Image flip
     private Boolean horizontal;
     // Color palette
-    private Integer paletteCount;   // number of dominant colors
+    private Integer paletteCount;
 
     // PDF
     private Integer splitPage;
     private String password;
     private List<String> fileIds;
-    private Integer pageIndex;          // PDF page rotate target page
-    private Integer rotationDegrees;    // 90 / 180 / 270
-    private Float watermarkOpacity;     // 0.0–1.0
+    private Integer pageIndex;
+    private Float watermarkOpacity;
+
+    // PDF page rotate (reuses rotateDegrees)
 
     // OCR
     private String language;
 
     // QR / Barcode
-    private String qrText;
+    private String qrContent;
     private Integer qrSize;
+    private String barcodeContent;
     private String barcodeFormat;
 
     // Data / text
     private String textContent;
     private String checksumAlgorithm;
-    private String diffFileId;          // second file for TEXT_DIFF
+    private String diffFileId;
 
     // Video
-    private Integer videoSecond;        // second to extract thumbnail
-    private Integer videoDuration;      // GIF duration in seconds
-    private Integer videoFps;           // GIF fps
+    private Integer videoSecond;
+    private Integer videoDuration;
+    private Integer videoFps;
 
     // Notifications
     private String notifyEmail;

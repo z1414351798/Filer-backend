@@ -6,16 +6,18 @@
         <id property="id" column="id"/>
         <result property="fileId" column="file_id"/>
         <result property="originalName" column="original_name"/>
-        <result property="contentType" column="content_type"/>
-        <result property="size" column="size"/>
-        <result property="storagePath" column="storage_path"/>
+        <result property="storedName" column="stored_name"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="mimeType" column="mime_type"/>
+        <result property="extension" column="extension"/>
         <result property="userId" column="user_id"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO file_record(file_id, original_name, content_type, size, storage_path, user_id, created_at)
-        VALUES(#{fileId}, #{originalName}, #{contentType}, #{size}, #{storagePath}, #{userId}, NOW())
+        INSERT INTO file_record(file_id, original_name, stored_name, file_path, file_size, mime_type, extension, user_id, created_at)
+        VALUES(#{fileId}, #{originalName}, #{storedName}, #{filePath}, #{fileSize}, #{mimeType}, #{extension}, #{userId}, NOW())
     </insert>
 
     <select id="findByFileId" resultMap="fileMap">

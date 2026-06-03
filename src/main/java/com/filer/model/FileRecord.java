@@ -13,5 +13,6 @@ public class FileRecord {
     private Long fileSize;
     private String mimeType;
     private String extension;
+    private Long userId;
     private LocalDateTime createdAt;
 }

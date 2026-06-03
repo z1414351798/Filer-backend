@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -23,8 +24,8 @@ public class ShareLinkService {
     private int ttlHours;
 
     public String createShareLink(String fileId) {
-        FileRecord file = fileMapper.findByFileId(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found"));
+        FileRecord file = fileMapper.findByFileId(fileId);
+        if (file == null) throw new IllegalArgumentException("File not found");
         ShareLink link = new ShareLink();
         link.setToken(UUID.randomUUID().toString());
         link.setFileId(file.getId());
@@ -38,8 +39,9 @@ public class ShareLinkService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired share link"));
         if (link.getExpiresAt().isBefore(LocalDateTime.now()))
             throw new IllegalArgumentException("Share link expired");
-        return fileMapper.findById(link.getFileId())
-                .orElseThrow(() -> new IllegalArgumentException("File not found"));
+        FileRecord file = fileMapper.findById(link.getFileId());
+        if (file == null) throw new IllegalArgumentException("File not found");
+        return file;
     }
 
     @Scheduled(fixedDelay = 3_600_000)
