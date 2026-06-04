@@ -1,0 +1,112 @@
+package com.filer.model.enums;
+
+public enum ConversionType {
+    // Image format
+    IMAGE_TO_JPG, IMAGE_TO_PNG, IMAGE_TO_WEBP, IMAGE_TO_BMP, IMAGE_TO_GIF, IMAGE_TO_TIFF,
+    // Image basic ops
+    IMAGE_RESIZE, IMAGE_COMPRESS, IMAGE_ROTATE,
+    IMAGE_FLIP_H, IMAGE_FLIP_V,
+    IMAGE_GRAYSCALE, IMAGE_WATERMARK,
+    // Image filters
+    IMAGE_CROP, IMAGE_SEPIA, IMAGE_INVERT, IMAGE_BLUR, IMAGE_SHARPEN, IMAGE_BRIGHTNESS,
+    // Image enhancements
+    IMAGE_COLLAGE, IMAGE_BORDER, IMAGE_ROUND_CORNERS, IMAGE_COLOR_PALETTE,
+    // PDF
+    PDF_MERGE, PDF_SPLIT, PDF_TO_IMAGES, PDF_EXTRACT_TEXT,
+    PDF_ENCRYPT, PDF_DECRYPT, IMAGES_TO_PDF,
+    // PDF enhancements
+    PDF_WATERMARK, PDF_PAGE_ROTATE, PDF_TO_DOCX, PDF_COMPRESS,
+    // OCR
+    OCR_IMAGE, OCR_PDF,
+    // Archive
+    ZIP_CREATE, ZIP_EXTRACT, TAR_CREATE, TAR_EXTRACT,
+    // Office
+    EXCEL_TO_CSV, CSV_TO_EXCEL, WORD_TO_TEXT,
+    // QR / Barcode
+    QR_GENERATE, QR_SCAN, BARCODE_GENERATE,
+    // Data formats
+    CSV_TO_JSON, JSON_TO_CSV, XML_TO_JSON, JSON_TO_XML,
+    MARKDOWN_TO_HTML, MARKDOWN_TO_PDF, TEXT_TO_PDF, HTML_TO_PDF,
+    JSON_TO_YAML, YAML_TO_JSON, JSON_FORMAT, XML_FORMAT,
+    BASE64_ENCODE, BASE64_DECODE, TEXT_DIFF,
+    // SVG
+    SVG_TO_PNG, SVG_TO_PDF,
+    // Video
+    VIDEO_THUMBNAIL, VIDEO_TO_GIF, VIDEO_AUDIO_EXTRACT, AUDIO_CONVERT,
+    // Office document → PDF (LibreOffice headless)
+    DOCX_TO_PDF, XLSX_TO_PDF, PPTX_TO_PDF, PPTX_TO_IMAGES,
+    // PDF extras
+    PDF_PAGE_EXTRACT, PDF_ADD_PAGE_NUMBERS,
+    // Data extras
+    JSON_TO_EXCEL,
+    // File utilities
+    FILE_CHECKSUM, IMAGE_METADATA, PDF_INFO,
+    // Video extras
+    VIDEO_TRIM, VIDEO_COMPRESS, VIDEO_TO_MP4,
+    // Audio extras
+    AUDIO_TRIM, AUDIO_MERGE,
+    // File encryption
+    FILE_AES_ENCRYPT, FILE_AES_DECRYPT,
+    // Developer tools (file-based)
+    HASH_FILE, URL_ENCODE, URL_DECODE, JWT_DECODE,
+    // Data extras
+    EXCEL_TO_JSON, CSV_MERGE,
+    // PDF extras
+    PDF_TO_HTML, PDF_LINEARIZE,
+    // Image extras
+    IMAGE_ASCII_ART, IMAGE_MEME, IMAGE_COMPARE,
+    // RTF
+    RTF_TO_PDF, RTF_TO_TEXT,
+    // HTML tables
+    CSV_TO_HTML, JSON_TO_HTML,
+    // Text utilities
+    TEXT_CASE_CONVERT, SUBTITLE_SRT_TO_VTT, VTT_TO_SRT,
+    // Video extras
+    VIDEO_EXTRACT_FRAMES, VIDEO_ADD_WATERMARK,
+    // Image extras
+    IMAGE_TO_ICO,
+    // PDF extras
+    PDF_CROP_MARGINS, PDF_REORDER_PAGES,
+    // Office extras
+    EXCEL_MERGE,
+    // Font
+    FONT_PREVIEW,
+    // PDF extras
+    PDF_METADATA_EDIT, PDF_EXTRACT_IMAGES, PDF_GRAYSCALE, PDF_FLATTEN,
+    // Image extras
+    IMAGE_EXIF_STRIP, IMAGE_NOISE_REDUCE, IMAGE_ANIMATED_GIF,
+    // Video extras
+    VIDEO_SPEED_CHANGE,
+    // Audio extras
+    AUDIO_SPLIT,
+    // HTML tools
+    HTML_SANITIZE, HTML_TO_MARKDOWN,
+    // Developer/data tools
+    CSV_STATS, UUID_GENERATE, LOREM_IPSUM, RANDOM_CSV,
+    // Video extras
+    VIDEO_CONCAT, VIDEO_RESIZE, AUDIO_NORMALIZE, AUDIO_FADE,
+    // Text/subtitle
+    SUBTITLE_SHIFT,
+    // Developer/generator tools
+    REGEX_TEST, PASSWORD_GENERATE, PASSPHRASE_GENERATE, COLOR_CONVERT,
+    // Image generator
+    PLACEHOLDER_IMAGE,
+    // Web tools
+    HTML_MINIFY, JSON_MINIFY,
+    // Data format extras
+    XML_TO_YAML, YAML_TO_XML, CSV_TO_XML,
+    // New wave 7
+    BARCODE_READ,
+    MARKDOWN_TO_DOCX,
+    PDF_THUMBNAIL,
+    // Wave 8
+    TEXT_TO_IMAGE, IMAGE_CAPTION, QR_WITH_LOGO,
+    JSON_FLATTEN, JSON_UNFLATTEN,
+    CSV_DEDUP, CSV_SORT,
+    AUDIO_VOLUME,
+    PDF_SPLIT_BY_SIZE,
+    ZIP_ENCRYPT,
+    NUMBER_BASE_CONVERT,
+    IMAGE_TO_DATA_URI,
+    CRON_DESCRIBE,
+}
